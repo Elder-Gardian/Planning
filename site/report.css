@@ -127,8 +127,10 @@ tbody th { color: var(--blue); font-weight: 800; white-space: nowrap; }.focus { 
 .document-content pre { margin: 1.5rem 0; padding: 1.4rem; overflow-x: auto; color: #e6edf5; background: var(--ink); border-radius: var(--radius); font-size: .78rem; line-height: 1.65; }
 .document-content pre code { padding: 0; color: inherit; background: transparent; }
 .document-content blockquote { max-width: 850px; margin: 1.5rem 0; padding: 1.2rem 1.4rem; color: var(--ink-soft); background: var(--green-soft); border-left: 3px solid var(--green); font-size: .87rem; }
-.math-inline { color: var(--blue); font-family: Georgia, "Times New Roman", serif; font-style: italic; }
-.math-block { max-width: 850px; margin: 1.5rem 0; padding: 1.35rem; overflow-x: auto; color: var(--ink); background: #f7f9fb; border: 1px solid var(--line); font: 1rem Georgia, "Times New Roman", serif; white-space: nowrap; }
+.math-inline { color: var(--blue); }
+.math-block { max-width: 850px; margin: 1.5rem 0; padding: 1.35rem; overflow-x: auto; color: var(--ink); background: #f7f9fb; border: 1px solid var(--line); font-size: 1rem; white-space: nowrap; }
+.math-block .katex-display { margin: 0; }
+.math-block .katex { font-size: 1.05em; }
 .document-table { max-width: 100%; margin: 1.5rem 0; }
 .document-table table { min-width: 640px; }
 
