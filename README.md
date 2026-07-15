@@ -2,6 +2,18 @@
 
 복지 사각지대를 찾고 신규 복지시설의 위치와 수용량을 제안하는 모델링 방법론을 정리한 기술 보고서형 GitHub Pages 사이트입니다.
 
+## 문서 구성
+
+- `site/index.html`: 복지 사각지대 모델링 방법론 보고서
+- `site/planning.html`: WelfareMap AI 사업 기획서
+- `site/technical-blueprint.html`: WelfareMap AI 기술 청사진
+
+사업 기획서와 기술 청사진의 원문은 `content/`에 보존하며 다음 명령으로 정적 페이지를 다시 생성할 수 있습니다.
+
+```bash
+node scripts/build-document-pages.mjs
+```
+
 ## 방법론 요약
 
 교통망과 100m 격자 수요를 그래프로 표현하고, GNN 기반 강화학습 정책이 신규 시설의 위치와 규모를 결정합니다. 용량 제약 최소비용 흐름 알고리즘이 제안 결과의 미충족 인구, 이동비용, 설치비, 지역 간 형평성을 평가해 보상으로 반환합니다.
