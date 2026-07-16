@@ -16,6 +16,7 @@ REQUEST_COLUMNS = [
     "current_availability_status",
     "register_as_of",
     "operational_status_confirmed",
+    "capacity_operational_confirmed",
     "capacity_registered",
     "capacity_fire",
     "capacity_seats",

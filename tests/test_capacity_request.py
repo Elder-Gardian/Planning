@@ -38,6 +38,7 @@ def test_request_contains_only_p0_records_and_no_legacy_capacity() -> None:
     assert result.columns.tolist() == REQUEST_COLUMNS
     assert result["source_record_id"].tolist() == ["center:1"]
     assert result.iloc[0]["current_address"] == "서울특별시 종로구 길 1"
+    assert result.iloc[0]["capacity_operational_confirmed"] == ""
     assert result.iloc[0]["capacity_registered"] == ""
     assert "legacy_capacity_proxy" not in result
     assert result.iloc[0]["request_status"] == "PENDING_DISTRICT_REGISTER"
