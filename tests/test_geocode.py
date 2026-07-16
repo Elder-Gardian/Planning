@@ -59,14 +59,15 @@ def test_outside_seoul_is_classified_not_discarded() -> None:
 
 
 def test_web_fallback_requires_exact_official_adm_code() -> None:
-    candidates = [
+    candidates: list[dict[str, object]] = [
+        {"admCd": "1129010100", "d": "", "k": ""},
         {"admCd": "1123010100", "d": 1, "k": 2},
         {"admCd": "1129010100", "d": 3, "k": 4},
     ]
 
     selected = select_web_coordinate_candidate(candidates, "1129010100")
 
-    assert selected == candidates[1]
+    assert selected == candidates[2]
     assert select_web_coordinate_candidate(candidates, "1111010100") is None
 
 

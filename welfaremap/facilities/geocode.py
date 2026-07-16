@@ -265,14 +265,16 @@ def select_web_coordinate_candidate(
     candidates: list[dict[str, Any]], expected_adm_cd: str
 ) -> dict[str, Any] | None:
     """Require the official address match's admCd; never fall back to the first row."""
-    return next(
-        (
-            candidate
-            for candidate in candidates
-            if clean_text(candidate.get("admCd")) == expected_adm_cd
-        ),
-        None,
-    )
+    for candidate in candidates:
+        if clean_text(candidate.get("admCd")) != expected_adm_cd:
+            continue
+        try:
+            float(clean_text(candidate.get("d")))
+            float(clean_text(candidate.get("k")))
+        except (TypeError, ValueError):
+            continue
+        return candidate
+    return None
 
 
 class OfficialJusoClient:
