@@ -23,6 +23,7 @@
         <a href="./planning.html">사업 기획서</a>
         <a href="./technical-blueprint.html">기술 청사진</a>
         <a href="./dual-graph-recommendation.html">이중 그래프</a>
+        <a href="./facility-data.html">시설 데이터</a>
       </nav>
       <a class="github" href="https://github.com/Elder-Gardian/Planning" target="_blank" rel="noreferrer">
         GitHub <span aria-hidden="true">↗</span>
@@ -46,7 +47,7 @@
           <span>의사결정</span><strong>신규 경로당 1개</strong>
           <span>분석 단위</span><strong>100m × 100m 격자</strong>
           <span>수요·공급</span><strong>예상 동시인원</strong>
-          <span>갱신일</span><strong>2026. 07. 16.</strong>
+          <span>갱신일</span><strong>2026. 07. 17.</strong>
         </div>
       </aside>
 
@@ -58,6 +59,7 @@
               <a href="./planning.html">사업 기획서</a>
               <a href="./technical-blueprint.html">기술 청사진</a>
               <a href="./dual-graph-recommendation.html">이중 그래프</a>
+              <a href="./facility-data.html">시설 데이터</a>
             </nav>
           </div>
           <div class="report-meta">
@@ -68,7 +70,7 @@
           <p class="dek">대상 자치구의 100m 격자별 예상 동시 이용자를 수요로 두고, 수도권 전체 교통망과 필지·예산 제약을 통과한 후보 중 고령인구의 미수용과 접근성 불평등을 가장 크게 줄이는 경로당 한 곳을 추천합니다.</p>
           <div class="report-status">
             <span class="status-dot"></span>
-            <p><strong>문서 상태</strong> P0 설계 확정 · 데이터 검증 단계</p>
+            <p><strong>문서 상태</strong> P0 설계 확정 · 시설 데이터 잠정</p>
             <p><strong>기본 시설</strong> 도시지역 경로당 · 신규 1개</p>
             <p><strong>주요 독자</strong> 정책 기획자 · 공간 분석가 · ML 엔지니어</p>
           </div>
@@ -164,8 +166,8 @@
             </div>
 
             <aside class="caveat">
-              <span>데이터 원칙</span>
-              <p>SGIS 100m 고령인구는 수요 prior와 검증 보조자료입니다. 소지역 비식별 처리와 노이즈를 고려해 구간·민감도 분석을 적용하며, 실제 예상 동시 이용자 입력을 대체하지 않습니다. 회원수나 일 이용자 수도 동시수용량으로 변환하기 전에는 공급으로 사용하지 않습니다.</p>
+              <span>시설 데이터 현황 · 2026-07-17</span>
+              <p>서울시 경로당 3,644건의 좌표값은 모두 존재하지만 엄격 검증 완료는 2건이고 실제 운영 동시수용량은 0건입니다. 고정 8명은 공급에서 제외했으며, 자치구 회신 전에는 STRICT_UNKNOWN=0과 LEGAL_NOMINAL=20을 별도 민감도로 평가합니다. <a href="./facility-data.html"><strong>시설 데이터 감사 보기 →</strong></a></p>
             </aside>
           </div>
         </section>
@@ -239,7 +241,7 @@
             <p class="section-intro">가까운 시설부터 채우는 탐욕 배분은 대안이 없는 격자의 용량을 빼앗을 수 있습니다. P0는 이용자격·접근상한·동시수용량을 지키는 capacitated flow를 사전식으로 최적화합니다.</p>
 
             <div class="equation-card">
-              <p>lexmin ( U, CVaR<sub>0.9</sub>(G), Z, Ḡ, Cost )</p>
+              <p>lexmin ( U, CVaR<sub>0.9</sub>(b), Z, Ḡ, Cost )</p>
               <dl><div><dt>U</dt><dd>총 미수용 수요</dd></div><div><dt>CVaR</dt><dd>접근부담 상위 10% 평균</dd></div><div><dt>Z</dt><dd>선호 기준 밖 사각지대 수요</dd></div></dl>
             </div>
 
@@ -332,7 +334,7 @@
                 <li>설명: 주요 수혜 격자, 대표 접근경로, 차선 후보와 탈락 이유, 민감도별 순위 변화</li>
                 <li>승인 전 확인: REVIEW_REQUIRED 필지, 법정 시설기준, 현장 동시수용량과 순사용면적</li>
               </ol>
-              <p><strong>다음 작업은 P0 후보 전수평가 파이프라인 구현입니다.</strong> AI가 부지를 임의로 확정하는 것이 아니라, 법규·예산을 통과한 모든 후보의 정책 효과를 계산하고 검증 가능한 우선순위를 제공합니다. <a href="https://github.com/Elder-Gardian/Planning" target="_blank" rel="noreferrer"><strong>구현 진행 보기 ↗</strong></a></p>
+              <p><strong>다음 gate는 실제 정원·운영상태 회신, 좌표 재검증, 100m 공간조인과 필지 마스크입니다.</strong> 이 입력을 고정한 뒤 법규·예산을 통과한 모든 후보의 정책 효과를 exact solver로 평가합니다. <a href="./facility-data.html"><strong>잔여 문제와 해결 순서 보기 →</strong></a></p>
             </div>
           </div>
         </section>
