@@ -182,10 +182,10 @@ g(p)=
 
 \[
 z_i=
-\frac{u_i+\sum_jx_{ij}\mathbf{1}[g_{ij}>15]}{d_i}
+\frac{u_i+\sum_jx_{ij}\mathbf{1}[g_{ij}>15]}{\max(d_i,\epsilon)}
 \]
 
-즉 미수용 수요뿐 아니라 시설에는 배정되었지만 선호 접근기준을 넘은 수요도 사각지대에 포함한다.
+즉 미수용 수요뿐 아니라 시설에는 배정되었지만 선호 접근기준을 넘은 수요도 사각지대에 포함한다. 수요가 0인 격자는 $z_i=0$으로 반환한다.
 
 ### 8. 필지·예산·용량 특징
 
@@ -225,7 +225,7 @@ A_{program}=\eta A_p^*-A_{fixed},\qquad
 K_{new,p}=\left\lfloor\frac{A_{program}}{a_{user,type}}\right\rfloor
 \]
 
-`a_user,type`은 법정 밀도가 아니다. 비교 가능한 운영 시설의 `순사용면적/실제 동시수용량` 분포에서 이상치를 제거하고 보수적인 75백분위로 추정한다. [노인복지법 시행규칙 별표 7](https://www.law.go.kr/LSW/flDownload.do?flSeq=164709269)은 서울 경로당에 이용정원 20명 이상과 거실·휴게실 20㎡ 이상을 요구하지만, 두 최소값을 1㎡당 1명으로 환산할 근거는 없다.
+`a_user,type`은 법정 밀도가 아니다. 비교 가능한 운영 시설의 `순사용면적/실제 동시수용량` 분포에서 이상치를 제거하고 보수적인 75백분위로 추정한다. [노인복지법 시행규칙 별표 7](https://www.law.go.kr/LSW/flDownload.do?bylClsCd=110201&flSeq=43368529&gubun=)은 서울 경로당에 이용정원 20명 이상과 거실·휴게실 20㎡ 이상을 요구하지만, 두 최소값을 1㎡당 1명으로 환산할 근거는 없다.
 
 [서울시 2024 공공건축물 공사비 가이드](https://opengov.seoul.go.kr/og/com/download.php?dname=2024%EB%85%84+%EA%B3%B5%EA%B3%B5%EA%B1%B4%EC%B6%95%EB%AC%BC+%EA%B1%B4%EB%A6%BD+%EA%B3%B5%EC%82%AC%EB%B9%84+%EC%B1%85%EC%A0%95+%EA%B0%80%EC%9D%B4%EB%93%9C%EB%9D%BC%EC%9D%B8.pdf&dtype=basic&nid=32033304&rid=F0000107846063&uri=%2Ffiles%2Fdcdata%2F100001%2F20241023%2FF0000107846063.pdf)의 경로당 신축단가는 200㎡ 미만 385.2만원/㎡, 200~400㎡ 374.2만원/㎡, 400㎡ 초과 368.5만원/㎡다. 토지·철거·설계·감리 등은 별도이며 발주시점 공사비지수로 보정한다.
 
@@ -399,7 +399,7 @@ location_logits[~candidate_mask] = -inf
 
 ### 14. 데이터 품질과 검증 계약
 
-[서울시 경로당 현황](https://data.seoul.go.kr/dataList/OA-15052/F/1/datasetView.do)의 최신 시 전체 파일은 시설명과 주소 확인에는 유용하지만 현재 동시수용량·순사용면적의 완전한 쌍을 제공하지 않는다. 프로젝트가 보유한 동시수용량 장부를 기준으로 삼고 건축물대장·자치구 면적자료와 결합해야 한다. 회원수나 일평균 방문자는 동시수용량으로 대체하지 않는다.
+[서울시 경로당 현황](https://data.seoul.go.kr/dataList/OA-15052/S/1/datasetView.do)의 시 전체 파일은 시설명과 주소 확인에는 유용하지만 행별 좌표·동시수용량·순사용면적·운영상태를 제공하지 않는다. 현재 확인된 운영 동시수용량은 0건이므로 자치구 설치·변경 신고대장과 현장 표본을 `source_record_id`로 결합해야 한다. 회신 전에는 `STRICT_UNKNOWN`과 `LEGAL_NOMINAL`을 분리하고, 고정 8명·회원수·일평균 방문자는 동시수용량으로 사용하지 않는다.
 
 후보지는 [연속지적도](https://www.data.go.kr/data/15123899/openapi.do), [토지이용계획정보](https://www.data.go.kr/data/15123973/openapi.do), [서울 개별공시지가](https://data.seoul.go.kr/dataList/OA-1180/F/1/datasetView.do), 실제 토지거래 자료를 결합한다. 공개 공간자료는 1차 검토용이므로 최종 추천에는 필지별 인허가 확인 상태를 함께 표시한다.
 
