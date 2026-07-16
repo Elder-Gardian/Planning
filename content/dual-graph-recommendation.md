@@ -399,7 +399,7 @@ location_logits[~candidate_mask] = -inf
 
 ### 14. 데이터 품질과 검증 계약
 
-[서울시 경로당 현황](https://data.seoul.go.kr/dataList/OA-15052/S/1/datasetView.do)의 시 전체 파일은 시설명과 주소 확인에는 유용하지만 행별 좌표·동시수용량·순사용면적·운영상태를 제공하지 않는다. 현재 확인된 운영 동시수용량은 0건이므로 자치구 설치·변경 신고대장과 현장 표본을 `source_record_id`로 결합해야 한다. 회신 전에는 `STRICT_UNKNOWN`과 `LEGAL_NOMINAL`을 분리하고, 고정 8명·회원수·일평균 방문자는 동시수용량으로 사용하지 않는다.
+[서울시 경로당 현황](https://data.seoul.go.kr/dataList/OA-15052/S/1/datasetView.do)의 시 전체 파일은 시설명과 주소 확인에는 유용하지만 행별 좌표·동시수용량·순사용면적·운영상태를 제공하지 않는다. 과거 신고대장 mirror에서 양수 정원 후보 1,162건을 연결했지만 최신 운영상태와 동시수용량이 아니므로 공급 그래프에는 넣지 않는다. 현재 확인된 운영 동시수용량은 0건이므로 자치구 설치·변경 신고대장과 현장 표본을 `source_record_id`로 결합해야 한다. 회신 전에는 `STRICT_UNKNOWN`과 `LEGAL_NOMINAL`을 분리하고, 고정 8명·과거 미확인 신고정원·회원수·일평균 방문자는 동시수용량으로 사용하지 않는다.
 
 후보지는 [연속지적도](https://www.data.go.kr/data/15123899/openapi.do), [토지이용계획정보](https://www.data.go.kr/data/15123973/openapi.do), [서울 개별공시지가](https://data.seoul.go.kr/dataList/OA-1180/F/1/datasetView.do), 실제 토지거래 자료를 결합한다. 공개 공간자료는 1차 검토용이므로 최종 추천에는 필지별 인허가 확인 상태를 함께 표시한다.
 
