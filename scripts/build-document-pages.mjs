@@ -6,9 +6,9 @@ const root = resolve(import.meta.dirname, "..");
 const require = createRequire(import.meta.url);
 const katex = require(resolve(root, "site/vendor/katex/katex.min.js"));
 const documents = [
-  { source: "content/planning.md", output: "site/planning.html", page: "planning", type: "Business plan", title: "WelfareMap AI 사업 기획서", subtitle: "AI 기반 노인 복지 사각지대 탐지 및 신규 복지시설 입지·규모 추천", status: "사업 구상 · 정책 의사결정 지원", audience: "지자체 · 공공 복지기관 · 도시계획 부서" },
-  { source: "content/technical-blueprint.md", output: "site/technical-blueprint.html", page: "blueprint", type: "Technical blueprint", title: "WelfareMap AI 기술 청사진", subtitle: "노인 복지시설 계획을 위한 그래프 신경망 및 강화학습 아키텍처", status: "기술 설계 · MVP 기준", audience: "ML 엔지니어 · 데이터 엔지니어 · 공간 분석가" },
-  { source: "content/dual-graph-recommendation.md", output: "site/dual-graph-recommendation.html", page: "dual-graph", type: "Architecture recommendation", title: "이중 그래프 설계 권고안", subtitle: "물리 격자 그래프 + 경로 상태 그래프의 이중 구조", status: "모델 구조 권고 · 구현 기준", audience: "ML 엔지니어 · 교통 모델러 · 공간 분석가", date: "2026. 07. 16.", sectionLevel: 3, summary: "100m 격자 하나를 하나의 물리 노드로 유지하면서, 환승 비용처럼 이전 이동수단에 의존하는 비용은 별도의 상태 확장 라우팅 그래프에서 계산한다. 격자 노드만으로 환승을 표현할 때 발생하는 패널티 누락과 동일 격자 내 무료 환승 문제를 이중 구조로 방지한다." },
+  { source: "content/planning.md", output: "site/planning.html", page: "planning", type: "Business plan", title: "WelfareMap AI 사업 기획서", subtitle: "고령인구 복지 불균형 완화를 위한 신규 경로당 1개 입지·사업규모 추천", status: "P0 확정 · 사업 입력 검증 단계", audience: "지자체 · 공공 복지기관 · 도시계획 부서", date: "2026. 07. 16." },
+  { source: "content/technical-blueprint.md", output: "site/technical-blueprint.html", page: "blueprint", type: "Technical blueprint", title: "WelfareMap AI 기술 청사진", subtitle: "예상 동시수요·수도권 경로·필지 예산·형평성 배분 기반 구현 명세", status: "P0 exact-first · 구현 기준", audience: "ML 엔지니어 · 데이터 엔지니어 · 공간 분석가", date: "2026. 07. 16." },
+  { source: "content/dual-graph-recommendation.md", output: "site/dual-graph-recommendation.html", page: "dual-graph", type: "Architecture specification", title: "P0 이중 그래프 구현 명세", subtitle: "100m 의사결정 그래프 + 상태 확장 경로 그래프", status: "P0 확정 · 라우팅·텐서 계약", audience: "ML 엔지니어 · 교통 모델러 · 공간 분석가", date: "2026. 07. 16.", sectionLevel: 3, summary: "100m 격자를 GNN의 입지 의사결정 단위로 유지하고, 환승 이력에 의존하는 고령자 일반화 이동비용은 별도의 상태 확장 경로 그래프에서 계산한다. 직접도보와 직전 노선을 보존해 억지 승차, 숨은 환승, 무비용 순환을 구조적으로 차단한다." },
 ];
 
 const escapeHtml = (value) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
@@ -134,7 +134,7 @@ function renderMarkdown(markdown, sectionLevel = 2) {
   return { content: blocks.join("\n"), toc };
 }
 
-const nav = (active) => `<nav class="document-nav" aria-label="문서 탐색"><a${active === "method" ? ' class="active" aria-current="page"' : ""} href="./index.html">방법론</a><a${active === "planning" ? ' class="active" aria-current="page"' : ""} href="./planning.html">사업 기획서</a><a${active === "blueprint" ? ' class="active" aria-current="page"' : ""} href="./technical-blueprint.html">기술 청사진</a><a${active === "dual-graph" ? ' class="active" aria-current="page"' : ""} href="./dual-graph-recommendation.html">이중 그래프</a></nav>`;
+const nav = (active) => `<nav class="document-nav" aria-label="문서 탐색"><a${active === "method" ? ' class="active" aria-current="page"' : ""} href="./index.html">P0 방법론</a><a${active === "planning" ? ' class="active" aria-current="page"' : ""} href="./planning.html">사업 기획서</a><a${active === "blueprint" ? ' class="active" aria-current="page"' : ""} href="./technical-blueprint.html">기술 청사진</a><a${active === "dual-graph" ? ' class="active" aria-current="page"' : ""} href="./dual-graph-recommendation.html">이중 그래프</a></nav>`;
 
 function pageTemplate(document, rendered) {
   const summary = document.summary ? `<section class="document-summary"><span>Technical summary</span><h2>핵심 권고</h2><p>${renderInline(document.summary)}</p></section>` : "";
