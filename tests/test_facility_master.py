@@ -124,3 +124,4 @@ def test_profile_reports_provisional_readiness_and_capacity_gap() -> None:
     assert profile["coordinates"]["p0_missing"] == 0
     assert profile["capacity"]["operational_known"] == 0
     assert profile["capacity"]["legal_nominal_total"] == 20
+    assert profile["blocking_gaps"][0] == "경로당 1곳의 행별 운영상태 미제공"

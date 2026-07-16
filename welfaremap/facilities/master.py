@@ -184,6 +184,9 @@ def facility_profile(
     center_mask = master["p0_service_eligible"].astype(bool)
     coord_complete = pd.to_numeric(master["latitude"], errors="coerce").notna()
     complete_coordinates = master[coord_complete]
+    unknown_center_status = int(
+        (center_mask & master["operational_status"].eq("UNKNOWN_SOURCE_MIXED")).sum()
+    )
     return {
         "generated_at": timestamp.isoformat(),
         "readiness": "PROVISIONAL_NOT_READY_FOR_FINAL_OPTIMIZATION",
@@ -217,7 +220,7 @@ def facility_profile(
             ),
         },
         "blocking_gaps": [
-            "경로당 3,644곳의 행별 운영상태 미제공",
+            f"경로당 {unknown_center_status:,}곳의 행별 운영상태 미제공",
             "신고 이용정원과 실제 최대 동시이용자 미제공",
             "기존 좌표 대부분의 공식 API 재검증 미완료",
             "교차원천 physical_facility_id 확정 미완료",
