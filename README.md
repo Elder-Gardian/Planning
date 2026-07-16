@@ -7,6 +7,7 @@
 - `site/index.html`: 복지 사각지대 모델링 방법론 보고서
 - `site/planning.html`: WelfareMap AI 사업 기획서
 - `site/technical-blueprint.html`: WelfareMap AI 기술 청사진
+- `site/dual-graph-recommendation.html`: 물리 격자·경로 상태 이중 그래프 설계 권고안
 
 사업 기획서와 기술 청사진의 원문은 `content/`에 보존하며 다음 명령으로 정적 페이지를 다시 생성할 수 있습니다.
 

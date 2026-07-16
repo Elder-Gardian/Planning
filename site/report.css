@@ -114,6 +114,10 @@ tbody th { color: var(--blue); font-weight: 800; white-space: nowrap; }.focus { 
 .document-toc nav { max-height: calc(100vh - 280px); overflow-y: auto; scrollbar-width: thin; }
 .document-header h1 { max-width: 900px; font-size: clamp(2.5rem, 5.2vw, 5rem); }
 .document-content { padding: 0 clamp(1.4rem, 6vw, 6rem) 6rem; }
+.document-summary { margin: clamp(3rem, 6vw, 5rem) 0 0; padding: clamp(1.5rem, 4vw, 2.5rem); background: #f7f9fb; border-top: 3px solid var(--ink); }
+.document-summary > span { color: var(--blue); font-size: .68rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.document-summary h2 { margin: .6rem 0 1rem; font-size: clamp(1.6rem, 3vw, 2.25rem); }
+.document-summary p { margin: 0; font-size: 1rem; line-height: 1.8; }
 .document-section { padding-top: clamp(4rem, 8vw, 7rem); scroll-margin-top: 70px; }
 .document-section + .document-section { margin-top: 4rem; border-top: 1px solid var(--line); }
 .document-section-index { margin-bottom: .7rem; color: var(--blue); font-size: .7rem; font-weight: 850; letter-spacing: .1em; }
