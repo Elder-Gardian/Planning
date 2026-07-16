@@ -4,10 +4,13 @@ import pandas as pd
 
 from welfaremap.facilities.geocode import (
     coordinate_scope,
+    decode_juso_web_coordinates,
     merge_recovered_coordinates,
     normalize_address,
+    records_needing_geocode,
     request_fingerprint,
     select_address_candidate,
+    select_web_coordinate_candidate,
 )
 
 
@@ -55,6 +58,29 @@ def test_outside_seoul_is_classified_not_discarded() -> None:
     assert coordinate_scope(126.297, 36.746) == "OUTSIDE_SERVICE_AREA"
 
 
+def test_web_fallback_requires_exact_official_adm_code() -> None:
+    candidates = [
+        {"admCd": "1123010100", "d": 1, "k": 2},
+        {"admCd": "1129010100", "d": 3, "k": 4},
+    ]
+
+    selected = select_web_coordinate_candidate(candidates, "1129010100")
+
+    assert selected == candidates[1]
+    assert select_web_coordinate_candidate(candidates, "1111010100") is None
+
+
+def test_web_coordinate_decoder_reverses_documented_transform() -> None:
+    east, north = 953_901.165, 1_952_032.542
+    encoded_east = east * 0.3 + 100_000
+    encoded_north = north * 0.3 + 100_000
+
+    longitude, latitude = decode_juso_web_coordinates(encoded_east, encoded_north)
+
+    assert 126.9 < longitude < 127.1
+    assert 37.4 < latitude < 37.7
+
+
 def test_existing_coordinates_are_not_overwritten_and_merge_is_id_based() -> None:
     facilities = pd.DataFrame(
         [
@@ -83,3 +109,62 @@ def test_existing_coordinates_are_not_overwritten_and_merge_is_id_based() -> Non
 
     assert result.loc[result["source_record_id"] == "a", "latitude"].item() == 37.5
     assert result.loc[result["source_record_id"] == "b", "latitude"].item() == 37.6
+
+
+def test_failed_recovery_can_fill_string_lineage_read_as_float_nan() -> None:
+    facilities = pd.DataFrame(
+        [
+            {
+                "source_record_id": "a",
+                "latitude": pd.NA,
+                "longitude": pd.NA,
+                "matched_adm_cd": float("nan"),
+                "coord_error": float("nan"),
+            }
+        ]
+    )
+    recovered = pd.DataFrame(
+        [
+            {
+                "source_record_id": "a",
+                "latitude": pd.NA,
+                "longitude": pd.NA,
+                "matched_adm_cd": "",
+                "coord_error": "주소검색 결과 없음",
+            }
+        ]
+    )
+
+    result = merge_recovered_coordinates(facilities, recovered)
+
+    assert result.iloc[0]["matched_adm_cd"] == ""
+    assert result.iloc[0]["coord_error"] == "주소검색 결과 없음"
+
+
+def test_only_missing_records_with_valid_address_are_geocode_targets() -> None:
+    facilities = pd.DataFrame(
+        [
+            {
+                "source_record_id": "complete",
+                "latitude": 37.5,
+                "longitude": 127.0,
+                "address_search": "서울특별시 종로구 길 1",
+            },
+            {
+                "source_record_id": "missing",
+                "latitude": pd.NA,
+                "longitude": pd.NA,
+                "address_search": "서울특별시 종로구 길 2",
+            },
+            {
+                "source_record_id": "invalid",
+                "latitude": pd.NA,
+                "longitude": pd.NA,
+                "address_search": "",
+            },
+        ]
+    )
+
+    targets = records_needing_geocode(facilities)
+
+    assert targets["source_record_id"].tolist() == ["missing"]

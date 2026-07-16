@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
+import os
 import re
 import sqlite3
 import time
@@ -13,12 +15,20 @@ from typing import Any, Protocol
 
 import pandas as pd
 import requests
+from dotenv import load_dotenv
 from pyproj import Transformer
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 JUSO_SEARCH_URL = "https://business.juso.go.kr/addrlink/addrLinkApi.do"
 JUSO_COORD_URL = "https://business.juso.go.kr/addrlink/addrCoordApi.do"
+JUSO_WEB_SEARCH_URL = "https://www.juso.go.kr/api/solr/solrKeywordSearch"
+JUSO_WEB_HEADERS = {
+    "Content-Type": "application/json",
+    "User-Agent": "WelfareMap-Data/0.1",
+    "Referer": "https://www.juso.go.kr/map/totalMapView",
+    "Origin": "https://www.juso.go.kr",
+}
 SECRET_PARAMETER_NAMES = frozenset({"confmKey", "serviceKey", "apiKey"})
 SEOUL_BOUNDS = (126.70, 127.30, 37.40, 37.75)
 TRANSFORMER = Transformer.from_crs("EPSG:5179", "EPSG:4326", always_xy=True)
@@ -179,6 +189,7 @@ class GeocodeResult:
     coord_source: str
     coord_status: str
     coord_confidence: str
+    coord_review_status: str
     matched_road_address: str
     matched_jibun_address: str
     matched_adm_cd: str
@@ -242,6 +253,28 @@ def coordinate_scope(longitude: float, latitude: float) -> str:
     return "OUTSIDE_SERVICE_AREA"
 
 
+def decode_juso_web_coordinates(encoded_east: float, encoded_north: float) -> tuple[float, float]:
+    """Decode the map endpoint's transformed EPSG:5179 coordinate pair."""
+    east = (encoded_east - 100_000.0) / 0.3
+    north = (encoded_north - 100_000.0) / 0.3
+    longitude, latitude = TRANSFORMER.transform(east, north)
+    return round(longitude, 7), round(latitude, 7)
+
+
+def select_web_coordinate_candidate(
+    candidates: list[dict[str, Any]], expected_adm_cd: str
+) -> dict[str, Any] | None:
+    """Require the official address match's admCd; never fall back to the first row."""
+    return next(
+        (
+            candidate
+            for candidate in candidates
+            if clean_text(candidate.get("admCd")) == expected_adm_cd
+        ),
+        None,
+    )
+
+
 class OfficialJusoClient:
     def __init__(
         self,
@@ -251,6 +284,7 @@ class OfficialJusoClient:
         *,
         interval_seconds: float = 0.05,
         timeout_seconds: float = 20,
+        allow_web_fallback: bool = False,
         session: requests.Session | None = None,
     ):
         self.search_key = search_key
@@ -258,6 +292,7 @@ class OfficialJusoClient:
         self.cache = cache
         self.interval_seconds = interval_seconds
         self.timeout_seconds = timeout_seconds
+        self.allow_web_fallback = allow_web_fallback
         self.session = session or self._session_with_retries()
 
     @staticmethod
@@ -322,6 +357,44 @@ class OfficialJusoClient:
         longitude, latitude = TRANSFORMER.transform(east, north)
         return round(longitude, 7), round(latitude, 7)
 
+    def web_fallback_coordinate(self, match: AddressMatch) -> tuple[float, float]:
+        payload = {
+            "strSearchType": "HSTRY",
+            "strFirstSort": "none",
+            "strAblYn": "N",
+            "strAotYn": "N",
+            "strSynnYn": None,
+            "strHstryYn": "Y",
+            "reqFrom": "RN_SEARCH_KOR_MAP",
+            "checkMoblieYn": "N",
+            "strFunctionName": "Y",
+            "keyword": match.road_address,
+            "pageable": {
+                "page": 0,
+                "size": 10,
+                "sort": [{"property": "", "direction": ""}],
+            },
+        }
+        time.sleep(self.interval_seconds)
+        response = self.session.post(
+            JUSO_WEB_SEARCH_URL,
+            json=payload,
+            headers=JUSO_WEB_HEADERS,
+            timeout=self.timeout_seconds,
+        )
+        response.raise_for_status()
+        body: dict[str, Any] = response.json()
+        if body.get("status") != 200:
+            raise RuntimeError(f"juso-web {body.get('status')}: {body.get('message')}")
+        results = body.get("results") or {}
+        candidates = results.get("content") or [] if isinstance(results, dict) else []
+        candidate = select_web_coordinate_candidate(candidates, match.adm_cd)
+        if candidate is None:
+            raise RuntimeError("공식 주소 admCd와 같은 웹 좌표 후보 없음")
+        encoded_east = float(candidate["d"])
+        encoded_north = float(candidate["k"])
+        return decode_juso_web_coordinates(encoded_east, encoded_north)
+
     def geocode(
         self, source_record_id: str, raw_address: Any, expected_borough: Any
     ) -> GeocodeResult:
@@ -334,6 +407,7 @@ class OfficialJusoClient:
                 "JUSO_OFFICIAL",
                 "INVALID_INPUT",
                 "NONE",
+                "REVIEW_REQUIRED",
                 "",
                 "",
                 "",
@@ -349,15 +423,27 @@ class OfficialJusoClient:
                 if match is None:
                     errors.append(f"후보 없음 또는 자치구 불일치: {query}")
                     continue
-                longitude, latitude = self.coordinate(match)
+                coord_source = "JUSO_OFFICIAL"
+                review_status = "VERIFIED"
+                coordinate_confidence = match.match_confidence
+                try:
+                    longitude, latitude = self.coordinate(match)
+                except (KeyError, TypeError, ValueError, requests.RequestException, RuntimeError):
+                    if not self.allow_web_fallback:
+                        raise
+                    longitude, latitude = self.web_fallback_coordinate(match)
+                    coord_source = "JUSO_WEB_FALLBACK_OFFICIAL_ADDRESS_VALIDATED"
+                    review_status = "REVIEW_REQUIRED"
+                    coordinate_confidence = "MEDIUM"
                 scope = coordinate_scope(longitude, latitude)
                 return GeocodeResult(
                     source_record_id,
                     latitude,
                     longitude,
-                    "JUSO_OFFICIAL",
+                    coord_source,
                     scope,
-                    match.match_confidence,
+                    coordinate_confidence,
+                    review_status,
                     match.road_address,
                     match.jibun_address,
                     match.adm_cd,
@@ -380,6 +466,7 @@ class OfficialJusoClient:
             "JUSO_OFFICIAL",
             "NO_VALIDATED_MATCH",
             "NONE",
+            "REVIEW_REQUIRED",
             "",
             "",
             "",
@@ -403,6 +490,14 @@ def merge_recovered_coordinates(
 
     result = facilities.copy()
     recovery = recovered.set_index("source_record_id")
+    numeric_columns = {"latitude", "longitude"}
+    for column in recovered.columns:
+        if column == "source_record_id":
+            continue
+        if column not in result:
+            result[column] = pd.NA
+        if column not in numeric_columns:
+            result[column] = result[column].astype("object")
     for index, row in result.iterrows():
         source_record_id = row["source_record_id"]
         if source_record_id not in recovery.index:
@@ -416,3 +511,81 @@ def merge_recovered_coordinates(
             if column != "source_record_id":
                 result.at[index, column] = recovered_row[column]
     return result
+
+
+def records_needing_geocode(facilities: pd.DataFrame) -> pd.DataFrame:
+    """Select records with no complete coordinate pair and a non-empty address."""
+    latitude = pd.to_numeric(facilities["latitude"], errors="coerce")
+    longitude = pd.to_numeric(facilities["longitude"], errors="coerce")
+    address_present = facilities["address_search"].map(clean_text).ne("")
+    return facilities[(latitude.isna() | longitude.isna()) & address_present].copy()
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--recovery-output", type=Path, required=True)
+    parser.add_argument("--profile-output", type=Path)
+    parser.add_argument("--env-file", type=Path, default=Path(".env"))
+    parser.add_argument(
+        "--cache",
+        type=Path,
+        default=Path("data/facilities/cache/juso-official.sqlite3"),
+    )
+    parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--interval", type=float, default=0.05)
+    parser.add_argument("--allow-web-fallback", action="store_true")
+    args = parser.parse_args()
+
+    load_dotenv(args.env_file)
+    search_key = clean_text(os.getenv("JUSO_API_KEY"))
+    coordinate_key = clean_text(os.getenv("JUSO_COORD_API_KEY"))
+    if not search_key or not coordinate_key:
+        parser.error("JUSO_API_KEY와 JUSO_COORD_API_KEY가 필요함")
+
+    facilities = pd.read_csv(args.input, encoding="utf-8-sig")
+    targets = records_needing_geocode(facilities)
+    if args.limit:
+        targets = targets.head(args.limit)
+    client = OfficialJusoClient(
+        search_key,
+        coordinate_key,
+        ResponseCache(args.cache),
+        interval_seconds=args.interval,
+        allow_web_fallback=args.allow_web_fallback,
+    )
+
+    results: list[GeocodeResult] = []
+    for count, row in enumerate(targets.itertuples(index=False), start=1):
+        result = client.geocode(
+            str(row.source_record_id),
+            row.address_search,
+            row.borough,
+        )
+        results.append(result)
+        if count % 25 == 0 or count == len(targets):
+            complete = sum(item.latitude is not None for item in results)
+            print(f"official geocode {count:,}/{len(targets):,} / success {complete:,}", flush=True)
+
+    recovery = geocode_results_frame(results)
+    args.recovery_output.parent.mkdir(parents=True, exist_ok=True)
+    recovery.to_csv(args.recovery_output, index=False, encoding="utf-8-sig")
+    merged = merge_recovered_coordinates(facilities, recovery)
+
+    from welfaremap.facilities.master import facility_profile, validate_master
+
+    validate_master(merged)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    merged.to_csv(args.output, index=False, encoding="utf-8-sig")
+    if args.profile_output:
+        args.profile_output.parent.mkdir(parents=True, exist_ok=True)
+        args.profile_output.write_text(
+            json.dumps(facility_profile(merged), ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
