@@ -15,6 +15,8 @@
 | `site/technical-blueprint.html` | 데이터·모델·solver·검증 기술 청사진 | `content/technical-blueprint.md`에서 생성 |
 | `site/dual-graph-recommendation.html` | 100m 물리 격자와 상태 확장 경로 그래프 설계 | `content/dual-graph-recommendation.md`에서 생성 |
 
+인수본과 현재 P0 계약의 채택·기각 기준은 [`report/p0-design-alignment.md`](./report/p0-design-alignment.md)에 기록합니다.
+
 `scripts/build-document-pages.mjs`는 `content/`의 Markdown 세 문서를 대응하는 HTML로 변환합니다. `site/index.html`은 이 스크립트가 다시 생성하지 않습니다. 공통 스타일과 상호작용은 `site/report.css`, `site/report.js`가 담당하며, `site/.nojekyll`과 함께 `site/` 전체가 배포 대상입니다.
 
 생성된 HTML도 저장소에서 관리하므로 원문을 변경했다면 대응하는 HTML을 함께 다시 생성해야 합니다. 생성물을 직접 수정하면 다음 빌드에서 덮어써질 수 있습니다.
