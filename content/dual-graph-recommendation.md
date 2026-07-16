@@ -1,280 +1,414 @@
-## 권고안: 물리 격자 그래프 + 경로 상태 그래프의 이중 구조
+## 권고안: 100m 의사결정 그래프 + 상태 확장 경로 그래프
 
-핵심은 “100m 격자 하나 = 하나의 물리 노드” 원칙을 유지하면서도, 환승 비용처럼 이전 이동수단에 의존하는 비용은 별도의 상태 확장 라우팅 그래프에서 계산하는 것이다. 격자 노드만으로 환승을 표현하면 노선이 바뀌어도 패널티가 누락되거나, 같은 격자 내 여러 정류장이 무료로 연결되는 문제가 생긴다.
+P0의 목표는 대상 자치구의 100m 격자별 **예상 동시 이용자**를 수요로 두고, 예산과 필지 규제를 만족하는 경로당 후보 한 곳을 선택하는 것이다. “100m 격자 하나 = GNN 노드 하나” 원칙은 유지하되, 환승처럼 이동 이력에 따라 달라지는 비용은 별도의 상태 확장 경로 그래프가 계산한다.
 
-### 1. GNN용 물리 그래프
+이 분리는 선택 사항이 아니다. 격자 그래프만으로 최단경로를 계산하면 같은 격자 안의 여러 정류장이 무료로 연결되거나, 하차한 뒤 조금 걸어서 다른 노선에 타는 방식으로 환승 패널티를 피할 수 있다. 반대로 정류장·역을 모두 GNN 노드로 만들면 사용자가 정한 공간 의사결정 단위와 모델의 행동 단위가 달라진다.
 
-시간대 \(t\)별 멀티릴레이션 유향 멀티그래프로 구성한다.
+P0에서 GNN의 행동은 `후보 격자 1개 선택`뿐이다. 시설 면적과 동시수용량은 선택한 격자 안의 필지·사업유형·예산을 검토하는 계산기가 결정한다.
+
+### 1. 두 그래프의 책임과 분석 경계
+
+| 구성요소 | 책임 | 포함 범위 |
+|---|---|---|
+| 100m 물리 격자 그래프 | 수요·공급·접근성·후보지의 공간적 상호작용 인코딩 | 대상구와 경로 계산에 필요한 주변 격자 |
+| 상태 확장 경로 그래프 | 도보·승차·대기·하차·환승을 포함한 최저 일반화비용 계산 | 수도권 전체 또는 시간 상한보다 넓은 네트워크 버퍼 |
+| 필지·예산 계산기 | 후보별 건축 가능 면적·사업비·신규 동시수용량 산출 | 대상구 내부의 실제 필지·건물 |
+| 형평성 배분 솔버 | 기존·신규 시설에 수요를 용량 내 배정하고 미수용 수요 계산 | 이용자격과 접근 상한을 만족하는 시설 |
+
+행정경계는 역할별로 다르게 적용한다.
+
+- 수요 origin은 대상 자치구에 둔다.
+- 신규 시설 후보는 사업 예산의 관할 자치구에 둔다.
+- 경로망은 자치구 경계에서 자르지 않는다.
+- 기존 시설 destination은 시설별 이용자격을 만족할 때만 허용한다.
+- 경계 밖 역·정류장은 destination이 아니어도 중간 경로 노드로 유지한다.
+
+따라서 광운대역에서 석계역을 거쳐 6호선을 이용하는 경로는 허용된다. 노원에서 구로 같은 장거리 배정은 행정구역 hard ban이 아니라 실제 이동시간, 일반화비용 상한, 시설 이용자격으로 배제한다.
+
+수도권 정적 기반망은 [KTDB 전국 GTFS](https://www.ktdb.go.kr/www/selectBbsNttView.do?bbsNo=2&key=45&nttNo=3785)를 사용하고, 서울 구간은 [서울 버스 노선 API](https://www.data.go.kr/data/15000193/openapi.do), [정류장 구간별 평균 운행시간](https://data.seoul.go.kr/dataList/OA-21217/S/1/datasetView.do), [서울교통공사 열차시각표](https://www.data.go.kr/data/15143847/openapi.do)로 갱신·검증한다.
+
+### 2. GNN용 물리 격자 그래프
+
+시간대와 수요 시나리오별 멀티릴레이션 유향 멀티그래프로 구성한다.
 
 \[
-G_t=(V,E^{walk},E^{bus}_t,E^{subway}_t)
+G_{t,s}^{grid}=(V,E^{spatial},E^{walk},E^{bus}_{t},E^{rail}_{t},X_{t,s})
 \]
 
 - \(V\): 유효한 모든 100m 격자
-- 동일한 두 격자 사이에 버스 노선별로 여러 간선 허용
-- GNN은 물리 격자 임베딩을 만들고, 정책 헤드는 각 격자의 신규 시설 입지 점수를 출력
-- 노선·방향 정보는 간선을 합쳐 없애지 않고 `route_id`, `direction_id`로 보존
+- \(E^{spatial}\): 공간 문맥 전달을 위한 4방향 또는 8방향 인접 관계
+- \(E^{walk}\): 실제 보행자도로망으로 연결된 격자 관계
+- \(E^{bus},E^{rail}\): 노선·방향·정차순서를 보존한 대중교통 관계
+- \(X_{t,s}\): 시간대 \(t\), 수요 시나리오 \(s\)의 노드 특징
 
-#### 노드 특징
+동일 격자쌍 사이에 여러 노선 간선을 허용한다. 노선이 다르면 `route_id`, `direction_id`, `mode_id`를 보존하고 최소시간 하나로 합치지 않는다. 다만 **정확한 이동비용은 물리 그래프가 아니라 상태 확장 경로 그래프가 계산한다.** 물리 그래프의 교통 간선은 GNN 메시지 전달과 접근성 요약에 사용한다.
 
-| 분류 | 예시 특징 |
+### 3. 노드 특징
+
+| 그룹 | 권장 특징 |
 |---|---|
-| 수요 | `elderly_population`, 시간대별 `estimated_demand` |
-| 기존 공급 | `facility_count`, `capacity_sum`, 현재 단계의 `added_capacity` |
-| 교통 접근성 | 버스 정류장 수, 지하철역 수, 운행 노선 수, 시간대별 운행 노선 수 |
-| 기초 사각지대 | 현재 시설까지 최소 일반화 비용, 15/30분 내 도달 가능 수용량 |
-| 공간 | 좌표 정규화값 또는 Fourier 위치 인코딩, 경계 격자 여부 |
-| 상태 | 유효 격자, 후보지 가능 여부, 이미 선택된 위치 여부 |
-| 결측 | 각 주요 특징별 missing indicator |
+| 수요 | `expected_concurrent_demand[t,s]`, 65·75·85세 이상 인구, 취약성, 수요 신뢰구간 |
+| 기존 공급 | 시설 유형별 개수, `capacity[type,t]`, 잔여용량, 운영시간, 운영상태 |
+| 현재 접근성 | 최근접 시설 비용, 10/15/30분 내 유형별 공급, 현재 미수용률, 대안 시설 수 |
+| 교통 | 정류장·역·노선 수, 시간대별 배차, 저상버스·엘리베이터·에스컬레이터 정보 |
+| 보행환경 | 보행거리, 경사, 계단, 횡단, 단절, 하천·철도·대형도로 장벽, 결측 플래그 |
+| 후보지 | 후보 상태, 가능한 필지 수, 토지가, 건폐율·용적률, 최대 면적·용량·사업비 |
+| 공간·정책 | 좌표 인코딩, 대상구 여부, 경계 격자, 기존 시설 동시입지, 시설 이용자격 요약 |
+| 순차배치 | 남은 예산, 남은 시설 수, 이전 신설 용량, 현재 단계 |
 
-최소 권장 벡터는 다음과 같다.
+수요는 더 이상 `고령인구 × 고정 이용률`로 정의하지 않는다.
 
 \[
-x_{i,t}=[
+d_{i,t,s}=\text{격자 }i\text{의 시간대 }t\text{ 예상 동시 이용자 수}
+\]
+
+고령인구는 수요 예측의 prior와 설명변수다. 수요값은 시나리오 사이에서 변경할 수 있지만, 에이전트가 에피소드 안에서 변경하거나 보상 분모에서 제거할 수 없다.
+
+공급도 하나의 스칼라로 합치지 않는다.
+
+\[
+K_{i,r,t}=\sum_{j\in facilities(i,r)}K_{j,r,t}
+\]
+
+여기서 \(r\)은 경로당·노인복지관 같은 서비스 유형이다. 서로 대체할 수 없는 시설 용량을 합치면 존재하지 않는 공급이 만들어진다.
+
+최소 권장 노드 벡터는 다음과 같다.
+
+\[
+x_{i,t,s}=[
 \log(1+P_i),
-\log(1+D_{i,t}),
-\log(1+C_i),
-F_i,
-B_i,S_i,R^{bus}_{i,t},R^{sub}_{i,t},
-A^{15}_{i,t},A^{30}_{i,t},
-g^{nearest}_{i,t},
-pos_i,
-m_i
+\log(1+d_{i,t,s}),
+\log(1+K_{i,r,t}),
+A^{10}_{i,r,t},A^{15}_{i,r,t},A^{30}_{i,r,t},
+g^{nearest}_{i,r,t},
+R^{bus}_{i,t},R^{rail}_{i,t},
+q_i^{parcel},pos_i,m_i
 ]
 \]
 
-- \(P_i\): 노인 인구 원자료
-- \(D_{i,t}=P_i\rho_t\): 시간대별 예상 이용 수요
-- \(C_i\): 격자 내 전체 시설 수용량 합
-- \(A^{k}_{i,t}\): 일반화 비용 \(k\)분 이내 현재 시설 수용량
-- \(g^{nearest}_{i,t}\): 현재 가장 가까운 시설까지의 일반화 비용
+`q_i^{parcel}`에는 격자 내부의 최적 필지에 대해 미리 계산한 최대 연면적, 예상 동시수용량, 총사업비, 타당성 상태가 포함된다. 이는 의사결정 시점에 알 수 있는 정보이므로 target leakage가 아니다. 반면 신규 시설을 설치한 뒤의 배정량과 실제 보상은 입력에 넣지 않는다.
 
-시간대별 이용률 \(\rho_t\)가 실측되지 않았다면 하나의 임의값으로 고정하지 말고 여러 수요 시나리오로 학습·평가하는 것이 안전하다.
+### 4. 간선 설계
 
-### 2. 간선 설계
+#### 도보·공간 간선
 
-#### 도보 간선
-
-- 기본 8방향 인접 격자 연결
-- 거리: 직교 100m, 대각 약 141.4m
-- 고령자 보행 속도로 이동시간 계산
-- 경사·횡단보도·보행 안전 데이터가 없다면 균일 비용을 쓰되 결측 플래그 기록
-- 교통수단이 있는 격자에서도 절대 제거하지 않음
-
-특징 예:
+단순 8방향 격자는 공간 문맥용으로만 사용한다. 경로 비용을 계산하는 보행 간선은 [서울 보행자도로 네트워크](https://data.seoul.go.kr/dataList/OA-21208/S/1/datasetView.do)처럼 실제 node-link 자료로 구성하고, 자치구별 파일을 경계에서 stitch한다.
 
 ```text
-[distance_m, walk_time_min, slope, crossing_count,
- accessibility_score, missing_flags]
+[distance_m, walk_time_min, slope, stair_count,
+ crossing_count, barrier_score, accessibility, missing_flags]
 ```
 
-#### 버스·지하철 승차 간선
+- 교통수단이 있는 격자에서도 도보 간선을 제거하지 않는다.
+- 하천·철도·차량전용도로를 가로지르는 가상 대각 간선을 만들지 않는다.
+- 보행속도는 기본 0.85m/s, 취약 0.70m/s, 낙관 1.12m/s로 평가한다.
 
-노선의 연속 정차 격자를 방향별로 연결한다. 동일 격자쌍도 노선이 다르면 별도 간선이다.
+#### 버스·철도 간선
+
+노선의 연속 정차 지점을 방향별로 연결한다.
 
 ```text
-[distance_m, in_vehicle_time,
- headway, expected_wait,
- reliability, seat_probability,
- service_active]
+[in_vehicle_time, headway, expected_wait, reliability,
+ seat_probability, crowding_level, boarding_barrier, service_active]
 ```
 
-별도 범주형 값:
+구간 운행시간이 있으면 사용자가 보유한 값을 우선 사용한다. 결측이면 여러 정상 평일의 `노선 × 방향 × 구간 × 시간대` 중앙값으로 대체하고 결측 플래그를 남긴다. 운행하지 않는 시간대는 비용 0이 아니라 `edge_active=false`로 마스킹한다.
 
-```text
-route_id, direction_id, mode_id
-```
+### 5. 환승을 위한 상태 확장 경로 그래프
 
-운행하지 않는 시간대의 간선을 특징값 0으로 두면 “비용 0인 무료 간선”으로 오인할 수 있으므로 반드시 `edge_active=false`로 마스킹해야 한다.
-
-정류장 위치만 있고 노선 순서·방향·배차간격·구간 운행시간이 없다면 정확한 대중교통·환승 모델은 만들 수 없다. 이 경우 정류장 수는 노드 특징으로만 쓰고, 운행 간선은 보수적인 추정치와 결측 플래그를 사용해야 한다.
-
-### 3. 환승을 위한 상태 확장 라우팅 그래프
-
-수요 배분 단계에서는 다음 상태를 사용한다.
+라우팅 상태는 다음과 같다.
 
 \[
-s=(grid,\ status,\ current/last\ service)
+s=(location,status,current\_service,last\_service,transfer\_count)
 \]
 
-예:
+| 전이 | 상태 변화 | 비용 |
+|---|---|---|
+| 보행 | `(OFF,last) → (OFF,last)` | 보행시간·경사·장벽 |
+| 최초 승차 | `(OFF,NONE) → (ON,route)` | 대기·승하차 |
+| 동일 노선 주행 | `(ON,route) → (ON,route)` | 좌석·입석 기대 차내비용 |
+| 하차 | `(ON,route) → (OFF,route)` | 하차·수직이동 |
+| 환승 승차 | `(OFF,old) → (ON,new)` | 환승보행·대기·고정 패널티 |
 
-- `(i, OFF, NONE)`: 아직 교통수단을 타지 않은 상태
-- `(i, ON_BUS, route_12)`
-- `(i, ON_SUBWAY, line_2)`
-- `(i, OFF, route_12)`: 하차했지만 직전 노선을 기억하는 상태
+하차 후에도 `last_service`를 유지한다. 그래야 한 격자를 걸어 다른 정류장에서 승차하는 방식으로 환승을 숨길 수 없다. 같은 노선에 다시 타더라도 새로운 대기와 승하차 비용은 부과한다.
 
-상태 전이는 다음과 같다.
+상태 그래프는 GNN 노드를 복제하는 것이 아니라 최단경로와 수요 배분에서만 사용하는 희소 그래프다. loop 없는 단순경로를 사용하고 최대 환승은 2회로 제한한다. 1회 hard cap은 경계 밖의 합리적 경로를 누락할 수 있으므로 사용하지 않는다.
 
-```text
-도보:
-(i, OFF, last) → (j, OFF, last)
+### 6. 고령자 일반화 이동비용
 
-최초 승차:
-(i, OFF, NONE) → (i, ON, route)
-
-주행:
-(i, ON, route) → (j, ON, route)
-
-하차:
-(i, ON, route) → (i, OFF, route)
-
-환승:
-(i, OFF, old_route) → (i, ON, new_route)
-```
-
-하차 후에도 `last_route`를 유지해야, 잠시 걷고 다른 정류장에서 승차하여 환승 패널티를 회피하는 경로를 막을 수 있다. 이 그래프는 GNN 물리 노드를 복제하는 것이 아니라 최단경로·수요 배분 계산에서만 사용하는 희소 상태 그래프다.
-
-### 4. 일반화 이동비용과 보상 해킹 방지
-
-경로 비용은 모든 항이 음수가 아닌 일반화 비용으로 정의한다.
+기준 단위는 `좌석·비혼잡 차내시간 1분 = 1 equivalent minute`이다.
 
 \[
-C(p)=
-\beta_wT_{walk}
-+\beta_qT_{wait}
-+\sum_e T^{ride}_e
-\left[
-p^{seat}_e\beta_{seat}
-+(1-p^{seat}_e)\beta_{stand}
-\right]
-+\kappa_{tr}N_{transfer}
-+\kappa_{board}N_{board}
+g(p)=
+1.5T_{walk}
++1.75T_{wait}
++2.0T_{transferwalk}
++\sum_eT^{ride}_e
+[p^{seat}_em^{seat}_e+(1-p^{seat}_e)m^{stand}_e]
++5N_{transfer}
++B(p)
 \]
 
-제약:
+| 변수 | 기본값 | 민감도 |
+|---|---:|---:|
+| 지속 보행속도 | 0.85m/s | 0.70 / 0.85 / 1.12 |
+| 일반 보행 | 1.5 | 1.5~2.0 |
+| 대기 | 1.75 | 1.75~2.25 |
+| 환승보행 | 2.0 | 1.91~2.11 |
+| 좌석·비혼잡 | 1.0 | 비용 하한 |
+| 좌석·혼잡 | 1.3 | 1.1~1.5 |
+| 입석 | 1.6 | 1.4~2.4 |
+| 좌석확률 | 0.5 | 0.2 / 0.5 / 0.8 |
+| 고정 환승 | 5분 | 0 / 5 / 11.2분 |
+
+[고령자 보행 연구](https://idea.seoul.go.kr/upload/suggest/20251127/64D4851EB32848C39BBDFE5FC3006D36.pdf)는 평균 약 1.12m/s, 하위 15백분위 약 0.85m/s를 보고한다. [고령자 이동행태 SP 연구](https://pure.uos.ac.kr/en/publications/exploring-the-travel-behavioral-differences-for-the-elderly-mobil/)에서는 환승시간을 차내시간보다 약 1.91~2.11배 무겁게 평가했다.
+
+대기는 최초 승차와 환승 승차에서만 부과한다. 규칙적 배차는 `headway/2`, 시각표 기반 경로는 다음 출발시각까지의 기대 대기를 사용한다. 매 주행 구간마다 대기시간을 더해서는 안 된다.
+
+좌석 편안함은 좌석시간을 음수 보상으로 만드는 대신 보행·대기·입석보다 낮은 양의 가중치로 표현한다. 이 방식이면 조금 더 오래 걸리는 좌석 이동은 선택될 수 있지만, 오래 순환할수록 비용은 항상 증가한다.
+
+### 7. 접근 기준과 사각지대
+
+[생활SOC 국가최저기준](https://www.codil.or.kr/filebank/original/RK/OTKCRK230572/OTKCRK230572.pdf)은 마을 단위 경로당 접근 목표를 도보 5~10분으로 제시한다. [2022 서울시 노인실태조사 재분석](https://council.jungnang.go.kr/kr/bbs/download.do?bbs_id=active&uid=ABC300ABF0C990005BE090C1191909EF)에서 서울 경로당의 실제 평균 편도 이동시간은 약 10.5분이다.
+
+시계시간과 일반화비용을 분리한다.
+
+- 선호 기준: \(g_{pref}=15\), 즉 10분 직접도보의 일반화비용
+- 절대 상한: 실제시간 30분 이하이면서 \(g\le45\)
+- 강건성 평가: 실제시간 상한 20/30/40분
+- 결과 보고: 10분·15분·30분 접근권을 모두 표시
+
+격자 \(i\)의 사각지대 비율은 다음과 같다.
 
 \[
-0<\beta_{seat}<\beta_{stand}\leq\beta_w,\qquad
-\kappa_{tr}>0
+z_i=
+\frac{u_i+\sum_jx_{ij}\mathbf{1}[g_{ij}>15]}{d_i}
 \]
 
-즉, 앉아서 이동하는 편안함은 승차시간의 체감 비용을 낮추는 방식으로 표현한다. 승차 자체에 양의 보상을 주거나 승차시간을 음수 비용으로 만들면 버스·지하철을 반복 탑승하는 순환 경로가 유리해진다.
+즉 미수용 수요뿐 아니라 시설에는 배정되었지만 선호 접근기준을 넘은 수요도 사각지대에 포함한다.
 
-필수 방어 규칙:
+### 8. 필지·예산·용량 특징
 
-- 출발지에서 시설까지 순수 도보 경로를 항상 후보에 포함
-- 대중교통 이용을 강제하지 않고 모든 경로 중 최소 일반화 비용 선택
-- 승차·탑승 횟수에 양의 보상 금지
-- 모든 이동·대기·환승 비용에 양의 하한 적용
-- 같은 상태 `(grid, mode, route)`를 반복하는 경로 제거 또는 dominance pruning
-- 최대 환승 수를 현실적인 상한으로 제한
-- 서로 다른 노선 간선을 `min travel time`으로 합치지 않음
-- 같은 격자 내 환승도 실제 환승 보행시간 또는 보수적 하한 적용
-- softmin을 사용한다면 명백히 열등한 순환·우회 경로를 먼저 제거
-- 최단거리 기준은 교통 이용 횟수가 아니라 일반화 비용
+후보지는 격자가 아니라 필지·건물 단위로 검토한 뒤 격자로 집계한다.
 
-이 설계에서는 가까운 시설은 도보가 자동으로 선택되고, 먼 시설은 낮은 승차 체감비용 때문에 대중교통 경로가 선택될 수 있다.
+| 상태 | 의미 | 정책 처리 |
+|---|---|---|
+| `FEASIBLE` | 공개자료상 예산·법규·면적 요건 충족 | 선택 가능 |
+| `HARD_EXCLUDE` | 도로·하천·철도·예산·최소요건 등 불충족 | 선택 불가 |
+| `REVIEW_REQUIRED` | 지구단위계획·경관·보전·공원 특례 등 심의 필요 | 조건부 대안으로만 표시 |
+| `UNKNOWN` | 필수 데이터 결측 | 실사업 추천에서 선택 불가 |
 
-### 5. 시간대 설계
+같은 격자에 기존 시설이 있어도 다른 필지나 증축안이 있으면 후보가 될 수 있다. 기존 시설 존재는 후보 제외 조건이 아니라 `co_located` 특징이다.
 
-운행과 수요가 다른 시간대를 별도 스냅샷으로 둔다.
+총사업비와 최대 연면적은 다음과 같이 계산한다.
 
-- 평일 출근·오전 이용 시간
-- 평일 비첨두
-- 평일 저녁
-- 주말 또는 휴일
+\[
+Cost(p,A)=Land(p)+Demolition(p)+c_{build}(A)A+Design+Supervision+Utility+Permit+Contingency
+\]
 
-실제 데이터가 있으면 고정된 1시간 단위 또는 서비스 변경 시점 기준으로 구성한다. 시간 특징에는 다음을 추가한다.
+\[
+A_p^*=\max_A A
+\]
 
-```text
-sin(2π·hour/24), cos(2π·hour/24),
-day_type, peak_flag
-```
+subject to:
 
-시설 수용량이 일일 수용량인지 동시 수용량인지 구분해야 한다. 같은 노인을 여러 시간대 수요로 중복 합산하지 말고, 시간대별 기대값·최악값·상위 분위수 등 명시된 집계 규칙으로 최종 보상을 계산한다.
+\[
+Cost(p,A)\le B,\quad
+A\le FAR_pA_{site},\quad
+A_{footprint}\le BCR_pA_{site}
+\]
 
-### 6. 정규화
+신규 동시수용량은 다음과 같다.
 
-- 인구·수요·수용량·정류장 수: `log1p` 후 학습 세트의 median/IQR 또는 mean/std
-- 시간·거리: 60분, 1km처럼 고정된 물리 단위로 스케일
-- 좌표: 분석 영역 기준 `[-1,1]` 또는 Fourier encoding
-- 확률·비율: `[0,1]`로 clip
-- 범주형 `route_id`, `mode_id`: embedding 사용, 수치 정규화 금지
-- 결측값: 0 대체와 missing indicator를 함께 사용
-- 검증·테스트 지역이나 신규 시설 배치 결과를 이용해 정규화 통계를 계산하지 않음
+\[
+A_{program}=\eta A_p^*-A_{fixed},\qquad
+K_{new,p}=\left\lfloor\frac{A_{program}}{a_{user,type}}\right\rfloor
+\]
 
-수요 배분과 수용량 제약에는 정규화값이 아니라 원래의 정수/실수 값을 사용해야 한다. 정규화된 수용량으로 min-cost flow를 수행하면 반올림이나 스케일 오차 때문에 실제 수용량을 초과할 수 있다.
+`a_user,type`은 법정 밀도가 아니다. 비교 가능한 운영 시설의 `순사용면적/실제 동시수용량` 분포에서 이상치를 제거하고 보수적인 75백분위로 추정한다. [노인복지법 시행규칙 별표 7](https://www.law.go.kr/LSW/flDownload.do?flSeq=164709269)은 서울 경로당에 이용정원 20명 이상과 거실·휴게실 20㎡ 이상을 요구하지만, 두 최소값을 1㎡당 1명으로 환산할 근거는 없다.
 
-### 7. 마스킹
+[서울시 2024 공공건축물 공사비 가이드](https://opengov.seoul.go.kr/og/com/download.php?dname=2024%EB%85%84+%EA%B3%B5%EA%B3%B5%EA%B1%B4%EC%B6%95%EB%AC%BC+%EA%B1%B4%EB%A6%BD+%EA%B3%B5%EC%82%AC%EB%B9%84+%EC%B1%85%EC%A0%95+%EA%B0%80%EC%9D%B4%EB%93%9C%EB%9D%BC%EC%9D%B8.pdf&dtype=basic&nid=32033304&rid=F0000107846063&uri=%2Ffiles%2Fdcdata%2F100001%2F20241023%2FF0000107846063.pdf)의 경로당 신축단가는 200㎡ 미만 385.2만원/㎡, 200~400㎡ 374.2만원/㎡, 400㎡ 초과 368.5만원/㎡다. 토지·철거·설계·감리 등은 별도이며 발주시점 공사비지수로 보정한다.
+
+### 9. 마스킹
 
 ```text
 node_valid_mask[N]
+target_demand_mask[T,S,N]
 candidate_mask[N]
-demand_mask[T,N]
-facility_mask[N]
+facility_eligibility_mask[T,N,J]
 edge_active_mask[relation,T,E]
-time_mask[T]
 selected_mask[step,N]
+time_mask[T]
 ```
 
-후보지 마스크 권장식:
+후보지 마스크는 다음과 같다.
 
 ```text
 candidate_mask =
     node_valid
-  & land_or_policy_feasible
+  & is_target_jurisdiction
+  & (candidate_status == FEASIBLE)
   & budget_feasible
-  & min_spacing_satisfied
   & ~already_selected
 ```
 
-주의점:
+- 인구가 0인 격자도 주변 수요를 서비스할 수 있으므로 제외하지 않는다.
+- 정류장이 없는 격자도 도보 접근이 가능하므로 제외하지 않는다.
+- 기존 시설이 있는 격자를 자동 제외하지 않는다.
+- 수요가 없는 외부 격자도 경로와 메시지 전달을 위해 유지한다.
+- 운행 중단 간선은 비용 0이 아니라 비활성 처리한다.
 
-- 인구가 0인 격자도 주변 수요를 서비스할 수 있으므로 후보에서 자동 제외하지 않음
-- 교통 정류장이 없는 격자도 도보 접근이 가능하므로 제외하지 않음
-- 저인구 격자를 마스킹하면 외곽 사각지대를 구조적으로 무시할 수 있음
-- 기존 시설과의 동일 격자 입지를 허용할지는 정책으로 명시
-- 운행 중단 간선은 비용 0이 아니라 비활성 마스크 처리
-- 수요가 없는 노드도 메시지 전달용 공간 노드로 유지
+### 10. 형평성 우선 수요 배분
 
-### 8. 구현 가능한 텐서 스키마
+수요 \(d_{i,t}\), 시설 용량 \(K_{j,r,t}\), 배정량 \(x_{i,j,t}\), 미수용량 \(u_{i,t}\)에 대해 다음 hard constraint를 적용한다.
+
+\[
+\sum_jx_{i,j,t}+u_{i,t}=d_{i,t}
+\]
+
+\[
+\sum_ix_{i,j,t}\le K_{j,r,t}
+\]
+
+\[
+x_{i,j,t}=0\quad\text{if}\quad eligible_{i,j,t}=0\ \lor\ T_{i,j,t}>30\ \lor\ g_{i,j,t}>45
+\]
+
+배분 목적은 임의 가중합이 아니라 다음 사전식 순서를 사용한다.
+
+\[
+\operatorname{lexmin}
+\left(
+U,\ CVaR_{0.9}(g),\ Z,\ \bar g,\ Cost
+\right)
+\]
+
+- \(U=\sum_i u_i\): 총 미수용 수요
+- \(CVaR_{0.9}\): 접근부담 상위 10%의 평균
+- \(Z\): 선호 기준을 넘는 사각지대 수요
+- \(\bar g\): 배정된 이용자의 평균 일반화비용
+- `Cost`: 정책 효과가 동일할 때의 총사업비
+
+가장 가까운 시설부터 단순히 채우지 않는다. 대안이 많은 이용자를 두 번째 시설로 보내고, 가까운 대안이 하나뿐인 이용자에게 희소한 용량을 남기는 것이 형평성 목적에 부합할 수 있다.
+
+### 11. 정책 출력과 학습 전략
+
+P0에서는 별도의 시설규모 head를 사용하지 않는다.
+
+\[
+a\in\{i\mid candidate\_mask_i=1\}
+\]
+
+\[
+score_i=MLP([h_i\Vert h_G\Vert q_i^{parcel}])
+\]
+
+신규 시설이 1개일 때는 모든 `FEASIBLE` 후보를 정확 배분 솔버로 평가할 수 있다. 이를 P0의 ground truth로 사용한다.
+
+1. 모든 후보의 예산·면적·용량 계산
+2. 모든 후보의 수요 배분과 사전식 목적 계산
+3. 정확 최적 후보와 전체 순위 생성
+4. GNN ranking 모델 사전학습
+5. 추론 시 GNN 상위 `k`개를 정확 솔버로 재평가
+
+이 구성은 강화학습의 불안정성과 보상 해킹을 줄이면서도 GNN이 대규모 시나리오의 후보를 빠르게 줄이는 역할을 하게 한다.
+
+여러 시설로 확장할 때는 남은 예산·추가 공급·미수용 수요를 상태에 반영하고 매 단계 전체 배분을 다시 실행한다. 총예산을 공유한다면 행동을 `(격자, cost-capacity Pareto 사업안)`으로 확장한다. 순수 greedy 대신 beam search나 rollout을 우선하고, 충분한 시나리오가 생긴 뒤 PPO·actor-critic과 비교한다.
+
+### 12. 보상과 Reward Hacking 불변식
+
+설치 전과 후의 목적 벡터를 같은 시나리오에서 비교한다.
+
+\[
+R(a)=J_{baseline}-J_{after(a)}
+\]
+
+`R`은 임의 가중합 한 개보다 `미수용·CVaR90·사각지대·평균비용`의 다중 head와 사전식 action comparator로 구현한다. 하위 목적이 상위 목적을 뒤집지 못하게 한다.
+
+| 공격적 최적화 가능성 | 환경 수준 방어 |
+|---|---|
+| 가까운 곳도 교통수단 강제 이용 | 순수도보 경로를 항상 후보에 포함, 탑승 자체 보상 금지 |
+| 앉아서 오래 순환 | 좌석비용도 1.0 이상의 양수, loop·dominance 제거 |
+| 하차 후 걸어서 환승 숨김 | `last_service`를 하차 후에도 유지 |
+| 배차가 긴 노선 과대평가 | 승차 시 실제 대기 또는 `headway/2` 부과 |
+| 운행하지 않는 노선 사용 | `edge_active=false` 마스킹 |
+| 먼 시설로 보내 이용률 균등화 | 이용률 분산을 보상에서 제외 |
+| 수용량 초과 | 배분 솔버 hard constraint |
+| 미도달 수요 삭제 | 모든 미도달 수요를 `u_i`에 보존 |
+| 수요를 줄여 개선률 과장 | 설치 전 전체 수요로 분모 고정, 수요는 외생 입력 |
+| 다른 시설유형의 가상 공급 | `K[node,type,t]`로 분리 |
+| 불법·결측 필지 선택 | `FEASIBLE`만 action 허용 |
+| 유리한 교통 시나리오 선택 | 설치 전후 동일 시간대·난수 시드 사용 |
+| 행정경계로 불리한 경로 삭제 | 수도권 전체 경로망 유지 |
+
+### 13. 구현 가능한 텐서 스키마
 
 ```python
 # 물리 격자
-x_static:          FloatTensor[N, F_static]
-x_time:            FloatTensor[T, N, F_dynamic]
-pos:               FloatTensor[N, 2]
+x_static:              FloatTensor[N, F_static]
+x_time:                FloatTensor[S, T, N, F_dynamic]
+pos:                   FloatTensor[N, 2]
 
-population_raw:    FloatTensor[N]
-demand_raw:        FloatTensor[T, N]
-capacity_raw:      FloatTensor[N]
-facility_count:    LongTensor[N]
+population_raw:        FloatTensor[N]
+demand_raw:            FloatTensor[S, T, N]
+capacity_raw:          FloatTensor[T, N, R]
+facility_count:        LongTensor[N, R]
 
-node_valid_mask:   BoolTensor[N]
-candidate_mask:    BoolTensor[N]
-demand_mask:       BoolTensor[T, N]
-selected_mask:     BoolTensor[K, N]       # 순차 배치 시
-time_mask:         BoolTensor[T]
+candidate_status:      LongTensor[N]       # feasible/exclude/review/unknown
+candidate_cost:        FloatTensor[N]
+candidate_gfa:         FloatTensor[N]
+candidate_capacity:    FloatTensor[N, R]
 
-# relation r ∈ {walk, bus, subway}
-edge_index[r]:     LongTensor[2, E_r]
-edge_attr[r]:      FloatTensor[T, E_r, F_edge_r]
-edge_active[r]:    BoolTensor[T, E_r]
-route_id[r]:       LongTensor[E_r]        # walk는 sentinel
-direction_id[r]:   LongTensor[E_r]
-mode_id[r]:        LongTensor[E_r]
+node_valid_mask:       BoolTensor[N]
+target_demand_mask:    BoolTensor[S, T, N]
+candidate_mask:        BoolTensor[N]
+selected_mask:         BoolTensor[K, N]
+time_mask:             BoolTensor[T]
 
-# 상태 확장 라우팅 그래프
-state_grid_id:     LongTensor[S]
-state_status:      LongTensor[S]
-state_service_id:  LongTensor[S]
+# relation r ∈ {spatial, walk, bus, rail}
+edge_index[r]:         LongTensor[2, E_r]
+edge_attr[r]:          FloatTensor[T, E_r, F_edge_r]
+edge_active[r]:        BoolTensor[T, E_r]
+route_id[r]:           LongTensor[E_r]
+direction_id[r]:       LongTensor[E_r]
+mode_id[r]:            LongTensor[E_r]
 
-route_edge_index:  LongTensor[2, E_state]
-route_edge_cost:   FloatTensor[T, E_state]
-route_edge_type:   LongTensor[E_state]
-route_edge_active: BoolTensor[T, E_state]
+# 상태 확장 경로 그래프
+state_location_id:     LongTensor[Q]
+state_status:          LongTensor[Q]
+state_current_service: LongTensor[Q]
+state_last_service:    LongTensor[Q]
 
-# 정책 출력
-location_logits:   FloatTensor[B, N]
+route_edge_index:      LongTensor[2, E_state]
+route_edge_cost:       FloatTensor[T, E_state]
+route_edge_type:       LongTensor[E_state]
+route_edge_active:     BoolTensor[T, E_state]
+
+# 정책·평가 출력
+location_logits:       FloatTensor[B, N]
+objective_heads:       FloatTensor[B, N, 4]  # unmet, CVaR, blindspot, mean cost
 ```
 
-정책 출력 직전에:
+정책 출력 직전에 반드시 마스킹한다.
 
 ```python
 location_logits[~candidate_mask] = -inf
 ```
 
-GNN은 relation별 edge-conditioned message passing 또는 R-GAT을 사용하고, 시간축은 temporal attention/GRU로 합칠 수 있다. 후보 점수는 `cell_embedding + global_graph_embedding + candidate_features`로 계산하는 구성이 적합하다.
+학습 입력에는 현재 상태의 접근성만 넣는다. 신규 시설을 설치한 뒤의 배분량·보상·잔여용량을 입력에 넣으면 후보 위치 정답을 노출하는 target leakage가 된다. 정규화 통계는 학습 지역에서만 계산하고, 배분·용량 제약에는 정규화되지 않은 원래 단위를 사용한다.
 
-마지막으로 입력에는 현재 상태에서 계산한 접근성만 넣고, 신규 시설을 배치한 뒤의 배분량·보상·잔여 수용량을 넣어서는 안 된다. 이는 후보 위치 정답을 직접 노출하는 target leakage가 된다.
+### 14. 데이터 품질과 검증 계약
+
+[서울시 경로당 현황](https://data.seoul.go.kr/dataList/OA-15052/F/1/datasetView.do)의 최신 시 전체 파일은 시설명과 주소 확인에는 유용하지만 현재 동시수용량·순사용면적의 완전한 쌍을 제공하지 않는다. 프로젝트가 보유한 동시수용량 장부를 기준으로 삼고 건축물대장·자치구 면적자료와 결합해야 한다. 회원수나 일평균 방문자는 동시수용량으로 대체하지 않는다.
+
+후보지는 [연속지적도](https://www.data.go.kr/data/15123899/openapi.do), [토지이용계획정보](https://www.data.go.kr/data/15123973/openapi.do), [서울 개별공시지가](https://data.seoul.go.kr/dataList/OA-1180/F/1/datasetView.do), 실제 토지거래 자료를 결합한다. 공개 공간자료는 1차 검토용이므로 최종 추천에는 필지별 인허가 확인 상태를 함께 표시한다.
+
+완료 기준은 다음과 같다.
+
+- 모든 수요가 배정 또는 미수용으로 보존된다.
+- 모든 시설의 유형별 동시수용량을 초과하지 않는다.
+- 불법 후보와 운행 중단 간선이 단 한 번도 선택되지 않는다.
+- 광운대역→석계역처럼 경계 밖 합리적 경로가 재현된다.
+- 짧은 직접도보가 불필요한 대중교통 경로보다 우선된다.
+- 좌석확률·보행속도·수요·건축단가 시나리오가 달라도 상위 후보의 안정성을 보고한다.
+- exact enumeration 대비 GNN top-k recall, regret, 추론시간을 함께 측정한다.
