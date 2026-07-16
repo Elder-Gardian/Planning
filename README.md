@@ -19,11 +19,23 @@
 
 인수본과 현재 P0 계약의 채택·기각 기준은 [`report/p0-design-alignment.md`](./report/p0-design-alignment.md)에 기록합니다.
 
-시설 데이터 파일별 역할과 회신 절차는 [`data/facilities/README.md`](./data/facilities/README.md), 현재 준비도와 잔여 gate는 [`report/facility-data-capacity-resolution.md`](./report/facility-data-capacity-resolution.md)에 기록합니다.
+시설 데이터 파일별 역할과 회신 절차는 접근 권한이 제한된 companion 저장소 `Elder-Gardian/Planning-Data`에, 공개 가능한 현재 준비도와 잔여 gate는 [`report/facility-data-capacity-resolution.md`](./report/facility-data-capacity-resolution.md)에 기록합니다.
 
 `scripts/build-document-pages.mjs`는 `content/`의 Markdown 네 문서와 시설 데이터 감사 보고서를 대응하는 HTML로 변환합니다. `site/index.html`은 이 스크립트가 다시 생성하지 않습니다. 공통 스타일과 상호작용은 `site/report.css`, `site/report.js`가 담당하며, `site/.nojekyll`과 함께 `site/` 전체가 배포 대상입니다.
 
 생성된 HTML도 저장소에서 관리하므로 원문을 변경했다면 대응하는 HTML을 함께 다시 생성해야 합니다. 생성물을 직접 수정하면 다음 빌드에서 덮어써질 수 있습니다.
+
+## Private 데이터 저장소
+
+행 단위 원천·가공 데이터, 자치구 요청표와 데이터 품질 프로파일은 private 저장소 `Elder-Gardian/Planning-Data`에서 관리합니다. 이 공개 저장소에는 코드, 테스트, 방법론 문서와 집계 결과만 둡니다. 데이터 접근 권한이 있는 작업자는 두 저장소를 같은 상위 디렉터리에 clone하는 구성을 권장합니다.
+
+```text
+workspace/
+├── Planning/
+└── Planning-Data/
+```
+
+시설 파이프라인 CLI의 입력·출력 인자에는 `../Planning-Data/data/facilities/...` 또는 `../Planning-Data/report/...`처럼 private 저장소 경로를 명시적으로 전달합니다. 테스트는 합성 fixture만 사용하므로 private 데이터 없이 실행할 수 있습니다. `data/`와 행 단위 프로파일 경로는 공개 저장소의 `.gitignore`에서 차단합니다.
 
 ## P0 확정 설계
 

@@ -20,5 +20,10 @@ venv/
 *.sqlite3
 *.log
 
+# Row-level source and derived data live in the private Planning-Data repository.
+/data/
+/report/facility-data-profile.json
+/report/historical-capacity-profile.json
+
 # Office temporary files.
 ~$*
