@@ -6,11 +6,12 @@
 
 ## 문서 구성
 
-사이트는 다섯 문서로 구성됩니다.
+사이트는 여섯 문서로 구성됩니다.
 
 | 페이지 | 내용 | 원문·근거 |
 |---|---|---|
 | `site/index.html` | 방법론 종합 보고서와 P0 의사결정 계약 | `sources/methodology-notes.md`의 근거 노트를 바탕으로 별도 관리 |
+| `site/proposal.html` | 의사결정자용 P0 조건부 실증 제안서 | `content/proposal.md`에서 생성 |
 | `site/planning.html` | WelfareMap AI 사업 기획서 | `content/planning.md`에서 생성 |
 | `site/technical-blueprint.html` | 데이터·모델·solver·검증 기술 청사진 | `content/technical-blueprint.md`에서 생성 |
 | `site/dual-graph-recommendation.html` | 100m 물리 격자와 상태 확장 경로 그래프 설계 | `content/dual-graph-recommendation.md`에서 생성 |
@@ -20,7 +21,7 @@
 
 시설 데이터 파일별 역할과 회신 절차는 [`data/facilities/README.md`](./data/facilities/README.md), 현재 준비도와 잔여 gate는 [`report/facility-data-capacity-resolution.md`](./report/facility-data-capacity-resolution.md)에 기록합니다.
 
-`scripts/build-document-pages.mjs`는 `content/`의 Markdown 세 문서와 시설 데이터 감사 보고서를 대응하는 HTML로 변환합니다. `site/index.html`은 이 스크립트가 다시 생성하지 않습니다. 공통 스타일과 상호작용은 `site/report.css`, `site/report.js`가 담당하며, `site/.nojekyll`과 함께 `site/` 전체가 배포 대상입니다.
+`scripts/build-document-pages.mjs`는 `content/`의 Markdown 네 문서와 시설 데이터 감사 보고서를 대응하는 HTML로 변환합니다. `site/index.html`은 이 스크립트가 다시 생성하지 않습니다. 공통 스타일과 상호작용은 `site/report.css`, `site/report.js`가 담당하며, `site/.nojekyll`과 함께 `site/` 전체가 배포 대상입니다.
 
 생성된 HTML도 저장소에서 관리하므로 원문을 변경했다면 대응하는 HTML을 함께 다시 생성해야 합니다. 생성물을 직접 수정하면 다음 빌드에서 덮어써질 수 있습니다.
 
@@ -61,6 +62,7 @@ node scripts/build-document-pages.mjs
 이 명령은 다음 파일을 갱신합니다.
 
 ```text
+content/proposal.md                  → site/proposal.html
 content/planning.md                  → site/planning.html
 content/technical-blueprint.md       → site/technical-blueprint.html
 content/dual-graph-recommendation.md → site/dual-graph-recommendation.html
@@ -73,7 +75,7 @@ report/facility-data-capacity-resolution.md → site/facility-data.html
 python3 -m http.server 8000 --directory site
 ```
 
-브라우저에서 `http://localhost:8000`을 열고 다섯 문서의 내비게이션, 표, 수식, 모바일 레이아웃과 외부 출처 링크를 확인합니다.
+브라우저에서 `http://localhost:8000`을 열고 여섯 문서의 내비게이션, 표, 수식, 모바일 레이아웃과 외부 출처 링크를 확인합니다.
 
 ## 검증
 
@@ -92,6 +94,7 @@ git diff --check
 ```bash
 node scripts/build-document-pages.mjs
 git diff --exit-code -- \
+  site/proposal.html \
   site/planning.html \
   site/technical-blueprint.html \
   site/dual-graph-recommendation.html \

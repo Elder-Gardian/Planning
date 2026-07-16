@@ -6,6 +6,7 @@ const root = resolve(import.meta.dirname, "..");
 const require = createRequire(import.meta.url);
 const katex = require(resolve(root, "site/vendor/katex/katex.min.js"));
 const documents = [
+  { source: "content/proposal.md", output: "site/proposal.html", page: "proposal", type: "Pilot proposal", title: "WelfareMap AI P0 실증 제안서", subtitle: "고령인구 복지 불균형 완화를 위한 신규 경로당 1개 입지 의사결정 지원", status: "조건부 실증 제안 · 데이터 gate 적용", audience: "지자체 의사결정자 · 복지·도시계획 부서 · 실증 파트너", date: "2026. 07. 17." },
   { source: "content/planning.md", output: "site/planning.html", page: "planning", type: "Business plan", title: "WelfareMap AI 사업 기획서", subtitle: "고령인구 복지 불균형 완화를 위한 신규 경로당 1개 입지·사업규모 추천", status: "P0 확정 · 사업 입력 검증 단계", audience: "지자체 · 공공 복지기관 · 도시계획 부서", date: "2026. 07. 17." },
   { source: "content/technical-blueprint.md", output: "site/technical-blueprint.html", page: "blueprint", type: "Technical blueprint", title: "WelfareMap AI 기술 청사진", subtitle: "예상 동시수요·수도권 경로·필지 예산·형평성 배분 기반 구현 명세", status: "P0 exact-first · 구현 기준", audience: "ML 엔지니어 · 데이터 엔지니어 · 공간 분석가", date: "2026. 07. 17." },
   { source: "content/dual-graph-recommendation.md", output: "site/dual-graph-recommendation.html", page: "dual-graph", type: "Architecture specification", title: "P0 이중 그래프 구현 명세", subtitle: "100m 의사결정 그래프 + 상태 확장 경로 그래프", status: "P0 확정 · 라우팅·텐서 계약", audience: "ML 엔지니어 · 교통 모델러 · 공간 분석가", date: "2026. 07. 17.", sectionLevel: 3, summary: "100m 격자를 GNN의 입지 의사결정 단위로 유지하고, 환승 이력에 의존하는 고령자 일반화 이동비용은 별도의 상태 확장 경로 그래프에서 계산한다. 직접도보와 직전 노선을 보존해 억지 승차, 숨은 환승, 무비용 순환을 구조적으로 차단한다." },
@@ -135,7 +136,7 @@ function renderMarkdown(markdown, sectionLevel = 2) {
   return { content: blocks.join("\n"), toc };
 }
 
-const nav = (active) => `<nav class="document-nav" aria-label="문서 탐색"><a${active === "method" ? ' class="active" aria-current="page"' : ""} href="./index.html">P0 방법론</a><a${active === "planning" ? ' class="active" aria-current="page"' : ""} href="./planning.html">사업 기획서</a><a${active === "blueprint" ? ' class="active" aria-current="page"' : ""} href="./technical-blueprint.html">기술 청사진</a><a${active === "dual-graph" ? ' class="active" aria-current="page"' : ""} href="./dual-graph-recommendation.html">이중 그래프</a><a${active === "facility-data" ? ' class="active" aria-current="page"' : ""} href="./facility-data.html">시설 데이터</a></nav>`;
+const nav = (active) => `<nav class="document-nav" aria-label="문서 탐색"><a${active === "method" ? ' class="active" aria-current="page"' : ""} href="./index.html">P0 방법론</a><a${active === "proposal" ? ' class="active" aria-current="page"' : ""} href="./proposal.html">실증 제안서</a><a${active === "planning" ? ' class="active" aria-current="page"' : ""} href="./planning.html">사업 기획서</a><a${active === "blueprint" ? ' class="active" aria-current="page"' : ""} href="./technical-blueprint.html">기술 청사진</a><a${active === "dual-graph" ? ' class="active" aria-current="page"' : ""} href="./dual-graph-recommendation.html">이중 그래프</a><a${active === "facility-data" ? ' class="active" aria-current="page"' : ""} href="./facility-data.html">시설 데이터</a></nav>`;
 
 function pageTemplate(document, rendered) {
   const summary = document.summary ? `<section class="document-summary"><span>Technical summary</span><h2>핵심 권고</h2><p>${renderInline(document.summary)}</p></section>` : "";
