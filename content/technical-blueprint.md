@@ -132,16 +132,27 @@ $$
 
 ```text
 facility_id
+source_record_id
 service_type
 grid_id
 geometry
-simultaneous_capacity
+operational_status
+availability_status
+capacity_operational_confirmed
+capacity_registered
+capacity_fire
+capacity_seats
+capacity_operational
+capacity_strict_unknown
+capacity_legal_nominal
 capacity_source
 capacity_confidence
+legacy_capacity_excluded
 operating_calendar
 eligible_resident_rule
-usable_area_m2
-gross_floor_area_m2
+facility_net_area_m2
+facility_area_scope
+facility_area_confidence
 ```
 
 시간대별 유효용량은 다음처럼 계산한다.
@@ -151,6 +162,14 @@ K_{f,t} = K_f^{sim} \cdot availability_{f,t}
 $$
 
 휴관 또는 해당 서비스가 운영되지 않는 시간에는 $availability_{f,t}=0$이다. 공간을 다른 프로그램과 공유하면 예약표를 이용해 0과 1 사이의 값으로 둔다.
+
+행정 확인 전의 결측을 하나의 숫자로 숨기지 않는다.
+
+- `STRICT_UNKNOWN`: 운영 여부와 운영 동시수용량이 함께 확인되지 않으면 0명
+- `LEGAL_NOMINAL`: 운영불가로 확인된 시설은 0명, 나머지 결측 도시 경로당은 법정 최소 이용정원 20명을 민감도 값으로만 사용
+- `legacy_capacity_excluded`: 과거 고정 8명과 전체 건축물 면적 기반 proxy는 `true`로 두고 공급 feature에서 차단
+
+확인된 운영 동시수용량이 없으면 설치 신고정원을 확인 가능한 소방 수용인원과 좌석 수로 제한한다. 회원수·일 이용자·피크 관측 인원은 서로 다른 필드로 보존하고, 피크 관측값은 정원 검증과 신규 시설의 면적당 동시수용량 보정에 사용한다.
 
 ### 3.3 시나리오
 
@@ -505,7 +524,7 @@ $$
 4. 정책 계획에는 보수적인 $a_{user}$ 75백분위 사용
 5. bootstrap 신뢰구간으로 용량 하·중·상 시나리오 생성
 
-도시지역 경로당은 법정 최소 이용정원 20명 등 현행 시설기준을 충족해야 한다. 법은 보편적인 `인원/㎡` 비율을 제공하지 않으므로 최소 정원과 공간 기준을 밀도 추정치로 오해해서는 안 된다. [노인복지법 시행규칙](https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq=282119)과 [노인여가복지시설 시설기준 별표 7](https://www.law.go.kr/LSW/flDownload.do?flSeq=164709269)을 별도 법적 검증 규칙으로 둔다.
+도시지역 경로당은 법정 최소 이용정원 20명 등 현행 시설기준을 충족해야 한다. 법은 보편적인 `인원/㎡` 비율을 제공하지 않으므로 최소 정원과 공간 기준을 밀도 추정치로 오해해서는 안 된다. [노인복지법 시행규칙](https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq=282119)과 [노인여가복지시설 시설기준 별표 7](https://www.law.go.kr/LSW/flDownload.do?bylClsCd=110201&flSeq=43368529&gubun=)을 별도 법적 검증 규칙으로 둔다.
 
 ### 7.4 신규 시설 적용
 
@@ -578,8 +597,10 @@ $$
 
 $$
 Z_{ts}=\frac{\sum_i u_{its}+\sum_{i,j}x_{ijts}\mathbf{1}[G_{ijts}>G_\tau]}
-{\sum_i d_{its}}
+{\max(\sum_i d_{its},\epsilon)}
 $$
+
+해당 시간대·시나리오의 총수요가 0이면 $Z_{ts}=0$으로 반환하고 CVaR 표본에서도 제외한다.
 
 최악 구간은 수요 또는 취약성 가중 $CVaR_{0.9}(b)$로 측정한다. CVaR는 상위 10% 고부담 이용자를 평균해 한두 개 극단값보다 안정적이면서 평균비용이 가리는 불평등을 드러낸다.
 
@@ -814,7 +835,8 @@ $$
 |---|---|---|
 | 100m 고령인구 | [SGIS OpenAPI](https://www.data.go.kr/data/15021230/openapi.do), [SGIS API 정의서](https://sgis.kostat.go.kr/developer/upload/doc/SGIS_OpenAPI_%EC%A0%95%EC%9D%98%EC%84%9C.pdf) | 65세 이상 인구 prior·수요 특징 |
 | 노인 수요 조사 | [2024 서울시 노인실태조사](https://kossda.snu.ac.kr/handle/20.500.12236/30284), [2023 노인실태조사 공공데이터](https://www.data.go.kr/tcs/dss/selectFileDataDetailView.do?publicDataPk=15004296) | 이용률·외출·교통수단·취약성 보정 |
-| 경로당 | [서울시 경로당 정보](https://data.seoul.go.kr/dataList/OA-15052/S/1/datasetView.do), 자치구 최신 자료, 프로젝트 행정자료 | 시설 위치·면적·운영·용량 |
+| 경로당 명부 | [서울시 경로당 정보](https://data.seoul.go.kr/dataList/OA-15052/S/1/datasetView.do) | 시설명·주소·전화·담당기관의 기준 원천. 행별 좌표·면적·정원·운영상태는 별도 확보 |
+| 경로당 현행성·용량 | 25개 자치구 설치·변경 신고대장, 현장 피크 표본 | 운영상태, 신고정원, 소방 수용인원, 좌석, 순사용면적, 동시이용자 |
 | 수도권 대중교통 기반망 | [KTDB 전국 대중교통 GTFS](https://www.ktdb.go.kr/www/selectBbsNttView.do?bbsNo=2&key=45&nttNo=3785) | 행정경계 밖 노선·정류장 topology |
 | 버스 노선 | [서울 버스 노선 API](https://data.seoul.go.kr/bsp/wgs/dataView/data300View/20049.do), [TAGO 버스 노선 API](https://www.data.go.kr/data/15098529/openapi.do) | 노선·방향·정차순서·배차 |
 | 버스 구간시간 | [국토교통부 버스도착정보 API](https://www.data.go.kr/data/15000314/openapi.do) | 시간대별 구간시간·도착정보 |
@@ -827,7 +849,9 @@ $$
 | 지가 | [서울 개별공시지가](https://data.seoul.go.kr/dataList/catalogView.do?currentPageNo=1&infId=OA-1180&srvType=A) | 필지별 토지비 추정 |
 | 공사비 | [서울 공공건축물 공사비 가이드](https://news.seoul.go.kr/citybuild/technical/construction_cost_estimation_guidelines) | 시설 유형·규모별 공사비 |
 
-서울시 통합 경로당 데이터의 면적·정원 필드는 시점과 자치구에 따라 결측 또는 제외될 수 있다. 따라서 프로젝트가 보유한 실제 동시수용량을 우선하고, 건축물대장과 최신 자치구 데이터를 결합하며 출처와 기준일을 시설별로 기록한다.
+현재 고정한 서울시 원본은 2025년 6월 말 기준 3,644건이며 행별 좌표·면적·정원·운영상태를 제공하지 않는다. 2026-07-17 시설 master에는 P0 좌표값 3,644건이 모두 존재하지만 엄격 검증 완료는 2건이고 3,642건은 검토가 남아 있다. 확인된 운영 동시수용량은 0건, 운영상태 미확인은 3,640건이다. 따라서 좌표 coverage를 검증 완료로 표현하지 않고, 자치구 회신 전에는 `STRICT_UNKNOWN`과 `LEGAL_NOMINAL`의 후보 순위 안정성을 함께 보고한다.
+
+원본, 좌표 근거, 수동 보정, 용량 회신은 `source_record_id`로 연결하고 기준일과 근거 URL을 시설별로 기록한다. 회신 병합 시 중복·미등록 ID, 음수·분수 인원, 근거 누락, 검증되지 않은 전체 건축물 면적을 오류로 차단한다.
 
 ### 12.2 ETL 단계
 
