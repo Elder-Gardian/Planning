@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="복지 사각지대를 찾고 신규 복지시설의 위치와 수용량을 제안하는 GNN·강화학습 기반 시설입지 방법론 보고서" />
+    <meta name="description" content="100m 격자 예상 동시수요, 수도권 교통망, 필지·예산 제약, 형평성 배분을 결합한 신규 경로당 1개 입지 P0 설계" />
     <meta name="theme-color" content="#10233f" />
-    <title>복지 사각지대 모델링 | Elder Guardian</title>
+    <title>P0 경로당 입지 모델링 | Elder Guardian</title>
     <link rel="stylesheet" href="./report.css" />
     <script defer src="./report.js"></script>
   </head>
@@ -18,7 +18,7 @@
         <span>Elder Guardian</span>
       </a>
       <nav class="document-nav" aria-label="문서 탐색">
-        <a class="active" aria-current="page" href="./index.html">방법론</a>
+        <a class="active" aria-current="page" href="./index.html">P0 방법론</a>
         <a href="./planning.html">사업 기획서</a>
         <a href="./technical-blueprint.html">기술 청사진</a>
         <a href="./dual-graph-recommendation.html">이중 그래프</a>
@@ -32,19 +32,20 @@
       <aside class="toc" aria-label="보고서 목차">
         <p>Contents</p>
         <nav>
-          <a href="#summary">기술 요약</a>
-          <a href="#finding">핵심 결론</a>
-          <a href="#scope">범위와 정의</a>
-          <a href="#method">방법론</a>
-          <a href="#model">모델 명세</a>
-          <a href="#comparison">접근법 비교</a>
-          <a href="#validation">검증과 한계</a>
+          <a href="#summary">P0 확정</a>
+          <a href="#finding">실행 구조</a>
+          <a href="#scope">데이터 계약</a>
+          <a href="#method">경로 비용</a>
+          <a href="#model">입지·용량</a>
+          <a href="#comparison">형평성·불변조건</a>
+          <a href="#validation">검증·근거</a>
           <a href="#roadmap">구현 로드맵</a>
         </nav>
         <div class="toc-meta">
-          <span>문서 유형</span><strong>방법론 설계안</strong>
+          <span>의사결정</span><strong>신규 경로당 1개</strong>
           <span>분석 단위</span><strong>100m × 100m 격자</strong>
-          <span>작성일</span><strong>2026. 07. 15.</strong>
+          <span>수요·공급</span><strong>예상 동시인원</strong>
+          <span>갱신일</span><strong>2026. 07. 16.</strong>
         </div>
       </aside>
 
@@ -52,36 +53,37 @@
         <header class="report-header">
           <div class="mobile-document-nav">
             <nav class="document-nav" aria-label="문서 탐색">
-              <a class="active" aria-current="page" href="./index.html">방법론</a>
+              <a class="active" aria-current="page" href="./index.html">P0 방법론</a>
               <a href="./planning.html">사업 기획서</a>
               <a href="./technical-blueprint.html">기술 청사진</a>
               <a href="./dual-graph-recommendation.html">이중 그래프</a>
             </nav>
           </div>
           <div class="report-meta">
-            <span>Technical methodology</span>
-            <span>Version 1.0</span>
+            <span>Exact-first technical methodology</span>
+            <span>Version 2.0</span>
           </div>
-          <h1>복지 사각지대 모델링</h1>
-          <p class="dek">교통망과 100m 격자 수요를 학습해 복지 사각지대를 계산하고, 신규 복지시설의 위치와 수용량을 제안하는 GNN·강화학습 기반 시설입지 방법론</p>
+          <h1>P0 경로당 입지 모델링</h1>
+          <p class="dek">대상 자치구의 100m 격자별 예상 동시 이용자를 수요로 두고, 수도권 전체 교통망과 필지·예산 제약을 통과한 후보 중 고령인구의 미수용과 접근성 불평등을 가장 크게 줄이는 경로당 한 곳을 추천합니다.</p>
           <div class="report-status">
             <span class="status-dot"></span>
-            <p><strong>문서 상태</strong> 설계 가설 · 실증 전</p>
-            <p><strong>주요 독자</strong> ML 엔지니어 · 공간 분석가 · 정책 기획자</p>
+            <p><strong>문서 상태</strong> P0 설계 확정 · 데이터 검증 단계</p>
+            <p><strong>기본 시설</strong> 도시지역 경로당 · 신규 1개</p>
+            <p><strong>주요 독자</strong> 정책 기획자 · 공간 분석가 · ML 엔지니어</p>
           </div>
         </header>
 
         <section class="section" id="summary">
           <div class="section-number">01</div>
           <div class="section-body">
-            <h2>기술 요약</h2>
+            <h2>P0는 한 곳을 고르고, 규모는 예산이 결정합니다</h2>
             <div class="summary-box">
-              <p class="summary-lead"><strong>권장 구조는 `GNN + 강화학습 + 기계적 수요 배분 평가기`입니다.</strong> ML이 시설 위치와 규모를 제안하고, 최적화 알고리즘이 실현 가능성과 정책 효과를 검증합니다.</p>
+              <p class="summary-lead"><strong>행동은 설치 가능한 격자 하나를 선택하는 것뿐입니다.</strong> 선택지마다 필지 규제와 지정 예산으로 가능한 연면적·순사용면적·동시수용량을 먼저 계산한 뒤 정책 효과를 비교합니다.</p>
               <ul class="summary-list">
-                <li><strong>교통망은 이미지가 아니라 이동비용으로 변환합니다.</strong><span>도로·버스·지하철의 연결성, 대기, 환승, 보행 장벽을 격자–시설 OD 비용에 반영합니다.</span></li>
-                <li><strong>GNN–RL이 주 의사결정 모델입니다.</strong><span>정답 위치 라벨 없이 미충족 인구, 이동비용, 설치비, 형평성을 보상으로 학습합니다.</span></li>
-                <li><strong>Graph Diffusion은 대안 생성기로 제한합니다.</strong><span>하나의 정답보다 조건별 복수 배치안을 만들고 feasibility projection과 local search로 보정합니다.</span></li>
-                <li><strong>노인 인구와 실제 복지 수요를 구분합니다.</strong><span>필요율 데이터가 없다면 결과는 ‘복지 필요 인원’이 아니라 ‘공간적 접근 취약성’입니다.</span></li>
+                <li><strong>수요는 예상 동시 이용자입니다.</strong><span>격자·시간대·시나리오별 입력값으로 관리하며, 노인 인구는 수요의 대체값이 아니라 추정 prior와 설명변수로만 사용합니다.</span></li>
+                <li><strong>공급도 동시수용량으로 맞춥니다.</strong><span>회원수·일 이용자 수를 섞지 않고, 경로당·노인복지관처럼 대체성이 다른 서비스 유형의 용량을 분리합니다.</span></li>
+                <li><strong>경계는 경로를 자르지 않습니다.</strong><span>수요와 신규 후보지는 대상 자치구로 제한하되, 광운대역–석계역–6호선처럼 경계 밖을 지나는 수도권 경로는 그대로 탐색합니다.</span></li>
+                <li><strong>불균형을 평균보다 먼저 줄입니다.</strong><span>미수용 수요, 접근부담 상위 10%, 선호 기준 밖 사각지대를 평균 이동비용보다 높은 우선순위로 최적화합니다.</span></li>
               </ul>
             </div>
           </div>
@@ -90,40 +92,45 @@
         <section class="section" id="finding">
           <div class="section-number">02</div>
           <div class="section-body">
-            <h2>핵심 결론: 학습기와 평가기의 책임을 분리합니다</h2>
-            <p class="section-intro">시설입지는 이미지 생성보다 제약이 있는 조합 최적화에 가깝습니다. 아래 구조는 ML을 핵심에 두면서도 결과의 인원수와 제약 준수 여부를 설명할 수 있게 합니다.</p>
+            <h2>후보집합의 기준해를 전수 계산하고, GNN은 탐색을 줄입니다</h2>
+            <p class="section-intro">신규 시설이 하나인 P0에서는 강화학습보다 모든 유효 후보를 동일한 솔버로 평가하는 exact enumeration이 더 투명합니다. 이 결과로 GNN 순위모델을 학습하고, 추론 때 상위 후보만 정확 재평가합니다.</p>
 
             <figure class="flow-figure" aria-labelledby="flow-title">
               <figcaption>
-                <strong id="flow-title">의사결정 학습 루프</strong>
-                <span>공간 상태에서 정책 제안과 기계적 평가가 순환합니다.</span>
+                <strong id="flow-title">P0 의사결정 파이프라인</strong>
+                <span>학습 모델의 제안은 항상 필지·경로·배분 솔버의 재검증을 통과합니다.</span>
               </figcaption>
               <ol class="model-flow">
-                <li><span>1</span><strong>교통·수요 그래프</strong><small>격자 피처와 이동시간 간선</small></li>
-                <li><span>2</span><strong>GNN 인코더</strong><small>주변 수요·접근성 임베딩</small></li>
-                <li><span>3</span><strong>위치·규모 정책</strong><small>후보지와 용량 클래스 선택</small></li>
-                <li><span>4</span><strong>수요 배분</strong><small>용량 제약 최소비용 흐름</small></li>
-                <li><span>5</span><strong>보상</strong><small>효과·비용·형평성 반환</small></li>
+                <li><span>1</span><strong>후보·예산</strong><small>필지별 가능 면적과 용량</small></li>
+                <li><span>2</span><strong>경로 오라클</strong><small>수도권 고령자 일반화비용</small></li>
+                <li><span>3</span><strong>전 후보 평가</strong><small>형평성 배분 기준해 생성</small></li>
+                <li><span>4</span><strong>GNN Top-k</strong><small>정확 점수의 순위 학습</small></li>
+                <li><span>5</span><strong>정확 재평가</strong><small>최종 순위·효과·근거 출력</small></li>
               </ol>
             </figure>
 
-            <div class="formula-panel" aria-label="강화학습 보상 함수">
-              <span>R</span>
-              <p>= 추가 커버 인원 <b>−</b> α · 이동비용 <b>−</b> β · 설치비 <b>−</b> γ · 지역 간 불평등</p>
+            <div class="formula-panel" aria-label="P0 행동과 개선값 정의">
+              <span>a = i</span>
+              <p>후보 격자 1개 선택 · 개선값 <b>ΔJ(i)</b> = J<sub>baseline</sub> − J<sub>after(i)</sub></p>
             </div>
 
             <figure class="chart-figure" aria-labelledby="chart-title">
               <figcaption>
-                <strong id="chart-title">시설입지 의사결정에 대한 접근법별 권장 적합성</strong>
-                <span>대화에서 제안된 역할을 4단계 정성 등급으로 정렬했습니다. 실험 성능값이 아닙니다.</span>
+                <strong id="chart-title">해법별 책임과 채택 조건</strong>
+                <span>방법 간 우열을 임의 점수로 표현하지 않고, 적용 시점과 통과해야 할 검증을 구분합니다.</span>
               </figcaption>
-              <div class="bar-chart" role="img" aria-label="GNN 강화학습 핵심 4, Graph Diffusion 확장 3, CNN 보조 2, GAN 연구 1">
-                <div class="bar-row"><span class="bar-label">GNN + 강화학습</span><div class="bar-track"><i style="--value:100%"></i></div><b>핵심 · 4</b></div>
-                <div class="bar-row"><span class="bar-label">Graph Diffusion</span><div class="bar-track"><i style="--value:75%"></i></div><b>확장 · 3</b></div>
-                <div class="bar-row"><span class="bar-label">CNN</span><div class="bar-track"><i style="--value:50%"></i></div><b>보조 · 2</b></div>
-                <div class="bar-row"><span class="bar-label">GAN</span><div class="bar-track"><i style="--value:25%"></i></div><b>연구 · 1</b></div>
+              <div class="table-frame" role="region" aria-label="해법별 역할과 채택 조건" tabindex="0">
+                <table>
+                  <thead><tr><th>해법</th><th>책임</th><th>적용 시점</th><th>채택 조건</th></tr></thead>
+                  <tbody>
+                    <tr class="focus"><th>Exact enumeration</th><td>모든 FEASIBLE 후보를 같은 솔버로 평가하는 기준해</td><td>P0 최초 구현</td><td>전 후보 재현, 예산·필지·용량 위반 0건</td></tr>
+                    <tr><th>GNN Top-k ranking</th><td>exact 점수의 후보 순위를 근사해 재평가 대상을 축소</td><td>P0 기준해 생성 이후</td><td>Top-k recall·regret·추론시간이 기준을 충족</td></tr>
+                    <tr><th>Beam search / rollout</th><td>수요·공급·예산이 갱신되는 다중시설 순차 배치의 기준선</td><td>P1 다중시설 확장</td><td>작은 문제의 exact 해와 비교 가능하고 greedy보다 안정적</td></tr>
+                    <tr><th>강화학습</th><td>큰 다중시설·다중시나리오에서 순차 정책을 근사</td><td>충분한 P1 학습 사례 확보 이후</td><td>beam·rollout 대비 효과와 재현성이 함께 개선</td></tr>
+                  </tbody>
+                </table>
               </div>
-              <p class="figure-note"><strong>해석:</strong> 등급은 주 시설입지 모델로서의 권장 역할을 뜻합니다. 실제 우열은 동일 시나리오에서 미충족 인구, 비용, 형평성, 제약 위반률을 비교해 확인해야 합니다.</p>
+              <p class="figure-note"><strong>확장 원칙:</strong> 다중시설은 설치 후 남은 수요·공급·예산을 갱신하는 순차 문제입니다. 기준선을 먼저 고정하고, RL은 그보다 나은 정책효과와 계산 효율을 입증할 때만 채택합니다.</p>
             </figure>
           </div>
         </section>
@@ -131,33 +138,33 @@
         <section class="section" id="scope">
           <div class="section-number">03</div>
           <div class="section-body">
-            <h2>출력은 사각지대 확률보다 미충족 인원으로 정의합니다</h2>
-            <p class="section-intro">분석 단위는 100m 격자 <i>i</i>, 공급 단위는 복지시설 <i>j</i>입니다. 모델이 계산해야 할 결과는 배정되지 못한 수요 <i>uᵢ</i>와 커버 비율입니다.</p>
+            <h2>수요와 용량은 같은 시간 단위로 맞춥니다</h2>
+            <p class="section-intro">격자 <i>i</i>, 시설 <i>j</i>, 서비스 유형 <i>k</i>, 시간대 <i>t</i>, 시나리오 <i>s</i>를 분리합니다. 모델이 바꿀 수 있는 값과 외부에서 주어지는 값을 명확히 구분합니다.</p>
 
             <div class="definition-strip">
-              <div><span>Dᵢ</span><strong>격자별 복지 수요</strong><small>Pᵢ × qᵢ</small></div>
-              <div><span>Cⱼ</span><strong>시설별 수용량</strong><small>서비스별 명 / 기간</small></div>
-              <div><span>Gᵢⱼ</span><strong>일반화 이동비용</strong><small>도보·대기·탑승·환승</small></div>
-              <div><span>uᵢ</span><strong>미충족 인원</strong><small>어디에도 배정되지 못한 수요</small></div>
+              <div><span>d<sub>its</sub></span><strong>예상 동시수요</strong><small>명 / 격자·시간대·시나리오</small></div>
+              <div><span>K<sub>jkt</sub></span><strong>동시수용량</strong><small>명 / 시설·서비스·시간대</small></div>
+              <div><span>G<sub>ijt</sub></span><strong>일반화 이동비용</strong><small>고령자 equivalent minute</small></div>
+              <div><span>u<sub>it</sub></span><strong>미수용 수요</strong><small>배정되지 못하고 그대로 남은 인원</small></div>
             </div>
 
-            <div class="table-frame" role="region" aria-label="모델 변수 정의표" tabindex="0">
+            <div class="table-frame" role="region" aria-label="P0 데이터 계약" tabindex="0">
               <table>
-                <thead><tr><th>변수</th><th>정의</th><th>단위</th><th>초기 대체값</th></tr></thead>
+                <thead><tr><th>항목</th><th>P0 계약</th><th>모델에서의 역할</th><th>금지되는 해석</th></tr></thead>
                 <tbody>
-                  <tr><th>Pᵢ</th><td>격자 i의 노인 인구</td><td>명 / 100m 격자</td><td>공개 인구 격자</td></tr>
-                  <tr><th>qᵢ</th><td>서비스 필요 확률 또는 예상 이용률</td><td>0–1 비율</td><td>1 또는 행정 통계 이용률</td></tr>
-                  <tr><th>Dᵢ</th><td>격자 i의 복지 수요 Pᵢ × qᵢ</td><td>예상 이용자 수</td><td>노인 인구</td></tr>
-                  <tr><th>Cⱼ</th><td>시설 j의 서비스별 수용량</td><td>명 / 기간</td><td>공시 정원 또는 운영 실적</td></tr>
-                  <tr><th>Gᵢⱼ</th><td>격자 i에서 시설 j까지의 일반화 이동비용</td><td>등가 분</td><td>도보·대중교통 최단시간</td></tr>
-                  <tr><th>uᵢ</th><td>시설에 배정되지 못한 격자 i의 수요</td><td>명</td><td>수요 배분 결과</td></tr>
+                  <tr class="focus"><th>수요</th><td>격자·시간대별 예상 동시 이용자</td><td>시나리오 입력, 에피소드 중 고정</td><td>노인 인구 전체를 자동으로 수요로 간주</td></tr>
+                  <tr><th>공급</th><td>같은 서비스 유형의 동시수용량</td><td>배분 hard constraint</td><td>회원수·일 방문자·타 서비스 용량과 합산</td></tr>
+                  <tr><th>시설 유형</th><td>P0 신규 시설은 경로당</td><td>이용자격·용량·비용 체계 선택</td><td>모든 노인복지시설을 완전 대체재로 간주</td></tr>
+                  <tr><th>공간 범위</th><td>수요·후보는 대상구, 경로는 수도권 전체</td><td>분석 마스크와 경로망 분리</td><td>자치구 경계에서 이동 간선 절단</td></tr>
+                  <tr><th>중복 입지</th><td>기존 시설과 같은 격자 허용</td><td><code>co_located</code> 특징으로 반영</td><td>기존 시설 존재만으로 후보 자동 제외</td></tr>
+                  <tr><th>규모</th><td>예산·필지에서 내생적으로 산출</td><td>후보 특징과 배분 용량</td><td>정원 클래스를 에이전트 행동으로 임의 선택</td></tr>
                 </tbody>
               </table>
             </div>
 
             <aside class="caveat">
-              <span>해석 주의</span>
-              <p>독거 여부, 연령대, 장애, 소득, 차량 보유, 경사도, 실제 이용·대기·거절 기록이 없다면 결과를 “복지 필요 인원”으로 부르면 안 됩니다. 이 경우 분석 대상은 <strong>노인 인구 기준 공간적 접근 취약성</strong>입니다.</p>
+              <span>데이터 원칙</span>
+              <p>SGIS 100m 고령인구는 수요 prior와 검증 보조자료입니다. 소지역 비식별 처리와 노이즈를 고려해 구간·민감도 분석을 적용하며, 실제 예상 동시 이용자 입력을 대체하지 않습니다. 회원수나 일 이용자 수도 동시수용량으로 변환하기 전에는 공급으로 사용하지 않습니다.</p>
             </aside>
           </div>
         </section>
@@ -165,68 +172,102 @@
         <section class="section" id="method">
           <div class="section-number">04</div>
           <div class="section-body">
-            <h2>교통망을 이동비용으로 압축한 뒤 학습과 최적화를 연결합니다</h2>
-            <p class="section-intro">도로·버스·지하철을 단순 이미지 채널로 쌓으면 연결성, 환승, 대기시간, 방향성을 잃을 수 있습니다. 먼저 격자–시설 OD 이동비용을 계산합니다.</p>
+            <h2>100m 의사결정 그래프와 경로 상태 그래프를 분리합니다</h2>
+            <p class="section-intro">GNN은 격자별 수요·공급·후보지 맥락을 학습합니다. 실제 접근비용은 정류장·역·노선·방향·탑승상태·직전 노선을 보존하는 별도 상태 그래프에서 계산합니다.</p>
 
             <div class="equation-card">
-              <p>G<sub>ij</sub> = T<sup>walk</sup><sub>ij</sub> + T<sup>wait</sup><sub>ij</sub> + T<sup>ride</sup><sub>ij</sub> + αN<sup>transfer</sup><sub>ij</sub> + βB<sub>ij</sub></p>
-              <dl><div><dt>N<sup>transfer</sup></dt><dd>환승 횟수</dd></div><div><dt>B</dt><dd>경사·횡단·보행 단절 등 장벽</dd></div></dl>
+              <p>G(p) = 1.5T<sub>walk</sub> + 1.75T<sub>wait</sub> + 2.0T<sub>transfer-walk</sub> + ΣT<sub>ride,e</sub>[p<sub>seat,e</sub>·1.0 + (1−p<sub>seat,e</sub>)·1.6] + 5N<sub>transfer</sub> + B(p)</p>
+              <dl>
+                <div><dt>Walk</dt><dd>기본 0.85m/s · 0.70/0.85/1.12 민감도</dd></div>
+                <div><dt>Seat</dt><dd>좌석은 편안하지만 항상 양의 비용</dd></div>
+                <div><dt>Access</dt><dd>선호 G≤15 · hard 실제 30분 및 G≤45</dd></div>
+              </dl>
             </div>
 
             <ol class="pipeline">
-              <li><span>1</span><div><strong>공간 데이터 정렬</strong><small>좌표계·시간대·서비스 단위 통일</small></div></li>
-              <li><span>2</span><div><strong>이동비용 계산</strong><small>격자–시설 OD 비용 Gᵢⱼ</small></div></li>
-              <li><span>3</span><div><strong>그래프 인코딩</strong><small>격자 피처와 이동시간 간선</small></div></li>
-              <li><span>4</span><div><strong>정책 행동</strong><small>신규 위치와 수용량 선택</small></div></li>
-              <li><span>5</span><div><strong>수요 배분</strong><small>용량 제약 최소비용 흐름</small></div></li>
-              <li><span>6</span><div><strong>보상·검증</strong><small>효과·비용·형평성 평가</small></div></li>
+              <li><span>1</span><div><strong>수도권 기반망 유지</strong><small>대상구 밖 노선·역·환승도 탐색</small></div></li>
+              <li><span>2</span><div><strong>순수도보 경로 포함</strong><small>대중교통이 있어도 도보 대안을 제거하지 않음</small></div></li>
+              <li><span>3</span><div><strong>승차 시에만 대기</strong><small>시각표 또는 규칙적 배차의 headway/2</small></div></li>
+              <li><span>4</span><div><strong>노선·방향·정차순서 보존</strong><small>같은 격자쌍의 노선 간선을 합치지 않음</small></div></li>
+              <li><span>5</span><div><strong>직전 노선 기억</strong><small>하차 후 걸어서 환승 패널티를 숨길 수 없음</small></div></li>
+              <li><span>6</span><div><strong>OD 비용을 격자에 환류</strong><small>최근접 비용·기준시간 내 공급을 GNN 특징으로 제공</small></div></li>
             </ol>
+
+            <aside class="caveat">
+              <span>계수 상태</span>
+              <p>보행·대기·좌석·입석·환승 계수는 서울 고령자 자료를 바탕으로 한 P0 calibration prior입니다. 최종 정책값은 지역 설문·관측으로 보정하되, <strong>모든 비용은 양수이고 좌석비용은 보행·입석보다 작다</strong>는 불변조건은 유지합니다.</p>
+            </aside>
           </div>
         </section>
 
         <section class="section" id="model">
           <div class="section-number">05</div>
           <div class="section-body">
-            <h2>모델은 위치·규모를 선택하고 최적화 레이어가 인원수를 계산합니다</h2>
-            <p class="section-intro">정책 행동 <i>aₜ = (설치 위치, 시설 규모)</i>는 후보지를 하나씩 선택합니다. 수용량은 50·100·200명처럼 이산 클래스로 제한하는 편이 안정적이고 행정 시나리오와도 연결하기 쉽습니다.</p>
+            <h2>필지가 가능한 크기를 만들고, 격자는 그 효과를 경쟁합니다</h2>
+            <p class="section-intro">도로·하천·철도·공원·용도지역을 격자 전체가 아니라 필지 단위로 판정합니다. 한 격자에 유효 필지가 하나라도 있으면 후보가 될 수 있고, 선택 위치에서 예산으로 가능한 최대 규모를 계산합니다.</p>
 
             <div class="spec-grid">
-              <article><span>Node</span><h3>격자 피처 xᵢ</h3><p>노인 인구, 현재 접근성, 대중교통 접근성, 주변 잔여 용량, 취약도, 설치 가능 여부·비용</p></article>
-              <article><span>Edge</span><h3>이동시간 간선 eᵢⱼ</h3><p>시간 임계값 또는 k-최근접 이동시간으로 연결하고, 도보·대중교통 비용과 환승을 보존</p></article>
-              <article><span>Action</span><h3>위치·규모 선택 aₜ</h3><p>선택된 시설 상태를 갱신하며 예산이나 시설 수가 소진될 때까지 순차적으로 행동</p></article>
-              <article><span>Evaluator</span><h3>수요 배분 xᵢⱼ</h3><p>최대 접근비용과 시설 용량을 지키면서 미충족 인원을 직접 계산</p></article>
+              <article><span>Candidate</span><h3>필지 타당성</h3><p><code>FEASIBLE</code>만 선택 가능. 명백한 불가는 <code>HARD_EXCLUDE</code>, 별도 심의는 <code>REVIEW_REQUIRED</code>, 결측은 <code>UNKNOWN</code>으로 분리합니다.</p></article>
+              <article><span>Budget</span><h3>총사업비</h3><p>토지·철거·공사·설계·감리·인입·인허가·장비·예비비를 합산하고 기준연도 이후 공사비지수로 보정합니다.</p></article>
+              <article><span>Capacity</span><h3>동시수용량</h3><p>순사용면적에 시설 유형별 실증 밀도 ρ를 적용합니다. 법정 최소정원은 검증 제약이지 보편적인 ㎡당 수용밀도가 아닙니다.</p></article>
+              <article><span>Co-location</span><h3>동일 격자 신설</h3><p>별도 필지·건물·증축안이 타당하면 허용합니다. 기존 시설 용량에 신규 용량을 더하되 시설 레코드는 분리합니다.</p></article>
+            </div>
+
+            <div class="equation-card">
+              <p>A<sup>*</sup><sub>p</sub> = max { A : Cost(p,A) ≤ B, A ≤ FAR<sub>p</sub>·A<sub>site</sub>, A<sub>footprint</sub> ≤ BCR<sub>p</sub>·A<sub>site</sub> }</p>
+              <dl><div><dt>Cost</dt><dd>토지 + 철거 + 공사 + soft cost + 장비 + 예비비</dd></div><div><dt>B</dt><dd>지정된 총예산</dd></div></dl>
             </div>
 
             <div class="constraint-panel">
-              <div><p>Σ<sub>j</sub> x<sub>ij</sub> + u<sub>i</sub> = D<sub>i</sub></p><small>모든 수요는 배정되거나 미충족으로 남습니다.</small></div>
-              <div><p>Σ<sub>i</sub> x<sub>ij</sub> ≤ C<sub>j</sub></p><small>시설이 수용량을 넘겨 담당할 수 없습니다.</small></div>
-              <div><p>x<sub>ij</sub> = 0 if G<sub>ij</sub> &gt; G<sub>max</sub></p><small>허용 이동비용 밖의 시설에는 배정하지 않습니다.</small></div>
+              <div><p>a = i ∈ FEASIBLE</p><small>P0 행동은 후보 격자 하나이며 용량을 직접 선택하지 않습니다.</small></div>
+              <div><p>A<sub>program</sub> = ηA<sup>*</sup> − A<sub>fixed</sub></p><small>연면적에서 공용·관리공간을 제외한 순프로그램 면적입니다.</small></div>
+              <div><p>K<sub>new</sub> = ⌊ρ<sub>type</sub>A<sub>program</sub>⌋</p><small>ρ는 기존 시설의 실제 순면적과 동시수용량으로 추정합니다.</small></div>
             </div>
+
+            <aside class="caveat">
+              <span>법·비용</span>
+              <p>도시지역 경로당의 법정 최소정원과 시설기준은 별도로 검증합니다. 서울시 공사비 가이드의 ㎡ 단가는 토지·철거·설계 등을 모두 포함한 총사업비가 아니므로 그대로 예산과 비교하지 않습니다.</p>
+            </aside>
           </div>
         </section>
 
         <section class="section" id="comparison">
           <div class="section-number">06</div>
           <div class="section-body">
-            <h2>생성형 모델은 hard constraint를 직접 보장하지 못합니다</h2>
-            <p class="section-intro">각 접근법을 배제하기보다 전체 시스템에서 책임을 명확히 나눕니다. Diffusion은 여러 Pareto 후보를 생성할 때 가치가 있지만, 첫 모델로 쓰려면 학습 데이터와 제약 보정 비용이 큽니다.</p>
+            <h2>배분은 평균이 아니라 가장 불리한 수요부터 개선합니다</h2>
+            <p class="section-intro">가까운 시설부터 채우는 탐욕 배분은 대안이 없는 격자의 용량을 빼앗을 수 있습니다. P0는 이용자격·접근상한·동시수용량을 지키는 capacitated flow를 사전식으로 최적화합니다.</p>
 
-            <div class="table-frame" role="region" aria-label="ML 접근법 비교표" tabindex="0">
-              <table>
-                <thead><tr><th>접근법</th><th>강점</th><th>핵심 한계</th><th>권장 역할</th></tr></thead>
-                <tbody>
-                  <tr class="focus"><th>GNN + 강화학습</th><td>그래프 구조와 보상 기반 조합 결정을 함께 학습</td><td>보상 설계와 학습 안정화가 중요</td><td><strong>주 정책 학습기</strong></td></tr>
-                  <tr><th>Graph Diffusion</th><td>서로 다른 목적의 후보 배치를 다수 생성</td><td>준최적 해 데이터와 feasibility 보정 필요</td><td>Pareto 후보 생성기</td></tr>
-                  <tr><th>CNN</th><td>격자형 지역 패턴과 래스터 피처 처리</td><td>환승·방향성·노선 연결성 표현이 약함</td><td>지역 피처 인코더</td></tr>
-                  <tr><th>GAN</th><td>빠른 샘플 생성과 분포 근사</td><td>정답 분포 부재, mode collapse, 제약 미보장</td><td>후순위 연구·증강</td></tr>
-                </tbody>
-              </table>
+            <div class="equation-card">
+              <p>lexmin ( U, CVaR<sub>0.9</sub>(G), Z, Ḡ, Cost )</p>
+              <dl><div><dt>U</dt><dd>총 미수용 수요</dd></div><div><dt>CVaR</dt><dd>접근부담 상위 10% 평균</dd></div><div><dt>Z</dt><dd>선호 기준 밖 사각지대 수요</dd></div></dl>
             </div>
 
-            <div class="diffusion-note">
-              <div><span>Graph Diffusion</span><strong>언제 추가할까?</strong></div>
-              <p>기준선과 GNN–RL이 안정된 뒤, 비용 최소화형·미충족 인구 최소화형·형평성 우선형 배치안을 동시에 제시하려는 단계에서 추가합니다.</p>
-              <ul><li>최적화 솔버로 준최적 학습 해 생성</li><li>예산·시설 수·설치 가능 지역을 조건으로 입력</li><li>feasibility projection + local search 후처리</li></ul>
+            <div class="constraint-panel">
+              <div><p>Σ<sub>j</sub>x<sub>ijt</sub> + u<sub>it</sub> = d<sub>it</sub></p><small>모든 수요는 배정되거나 미수용으로 남습니다.</small></div>
+              <div><p>Σ<sub>i</sub>x<sub>ijt</sub> ≤ K<sub>jt</sub></p><small>어떤 시설도 동시수용량을 넘지 않습니다.</small></div>
+              <div><p>x<sub>ijt</sub> = 0 if ¬eligible ∨ T&gt;30 ∨ G&gt;45</p><small>자격과 실제시간·일반화비용 hard cap을 함께 적용합니다.</small></div>
+            </div>
+
+            <div class="formula-panel" aria-label="사각지대 비율 정의">
+              <span>z<sub>i</sub></span>
+              <p>= [u<sub>i</sub> + Σ<sub>j</sub>x<sub>ij</sub>·1(G<sub>ij</sub> &gt; 15)] / d<sub>i</sub></p>
+            </div>
+
+            <h3 class="subheading">Reward Hacking을 막는 환경 불변조건</h3>
+            <div class="table-frame" role="region" aria-label="보상 해킹 방지 규칙" tabindex="0">
+              <table>
+                <thead><tr><th>실패 방식</th><th>환경에서 강제할 규칙</th><th>검증</th></tr></thead>
+                <tbody>
+                  <tr class="focus"><th>가까운 곳도 억지 승차</th><td>순수도보 경로를 항상 포함하고 탑승 자체에는 보상을 주지 않음</td><td>도보가 더 낮은 G일 때 100% 도보 선택</td></tr>
+                  <tr><th>앉아서 무한 순환</th><td>좌석시간도 양수, 반복 상태·열등 경로 제거</td><td>모든 경로 비용 양수, loop 0건</td></tr>
+                  <tr><th>환승 숨기기</th><td>하차 뒤에도 <code>last_service</code>를 유지</td><td>도보를 낀 노선 변경에도 환승 1회</td></tr>
+                  <tr><th>대기시간 왜곡</th><td>최초·환승 승차 시에만 실제 대기 또는 headway/2</td><td>주행 구간마다 대기 중복 0건</td></tr>
+                  <tr><th>미도달 수요 삭제</th><td>모든 미도달·용량초과 수요를 u에 보존</td><td>배정 + 미수용 = 고정 수요</td></tr>
+                  <tr><th>분모 축소</th><td>설치 전 전체 예상 수요를 성과 분모로 고정</td><td>전후 수요 총합 동일</td></tr>
+                  <tr><th>가상 공급 생성</th><td>서비스 유형별 용량과 이용자격을 분리</td><td>타 서비스 교차배정 0건</td></tr>
+                  <tr><th>유리한 시나리오만 사용</th><td>설치 전후 동일 교통·수요 시나리오와 난수 시드</td><td>paired evaluation 재현</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
@@ -234,23 +275,37 @@
         <section class="section" id="validation">
           <div class="section-number">07</div>
           <div class="section-body">
-            <h2>검증은 정확도 대신 정책 효과와 강건성을 측정합니다</h2>
-            <p class="section-intro">정답 위치 라벨이 없으므로 분류 정확도는 핵심 지표가 아닙니다. 작은 문제에서는 MILP 최적해와의 optimality gap을, 큰 문제에서는 휴리스틱 대비 목적함수와 실행시간을 비교합니다.</p>
+            <h2>전 후보 기준해와 민감도로 추천의 강건성을 증명합니다</h2>
+            <p class="section-intro">P0의 정답은 단일 역사적 시설 위치가 아니라, 같은 후보·예산·경로·배분 규칙에서 계산한 exact enumeration 순위입니다. GNN은 이 순위를 얼마나 적은 재평가로 복원하는지 평가합니다.</p>
 
             <div class="metric-list">
-              <div><span>↓</span><strong>미충족 인구</strong><p>Σᵢuᵢ 또는 취약도 가중 Σᵢvᵢuᵢ</p><small>수요율 qᵢ 오차에 민감</small></div>
-              <div><span>↓</span><strong>평균 이동비용</strong><p>ΣᵢⱼGᵢⱼxᵢⱼ / Σᵢⱼxᵢⱼ</p><small>평균만 보면 최악 지역이 숨겨짐</small></div>
-              <div><span>↓</span><strong>설치·운영 비용</strong><p>후보지 고정비 + 규모별 증분비</p><small>운영비·부지비 누락 가능</small></div>
-              <div><span>↔</span><strong>지역 간 형평성</strong><p>최대 미충족 비율 또는 지역별 분산</p><small>정의에 따라 최적해가 달라짐</small></div>
-              <div><span>✓</span><strong>실현 가능성</strong><p>예산·용량·입지 제약 위반률</p><small>모든 배치에서 100% 준수</small></div>
+              <div><span>↓</span><strong>미수용 U</strong><p>Σu<sub>i</sub></p><small>사전식 1순위</small></div>
+              <div><span>↓</span><strong>CVaR90</strong><p>상위 10% 접근부담</p><small>최악 꼬리 보호</small></div>
+              <div><span>↓</span><strong>사각지대 Z</strong><p>G&gt;15 포함 비율</p><small>수요 가중</small></div>
+              <div><span>↓</span><strong>GNN regret</strong><p>Exact 대비 ΔJ 손실</p><small>Top-k recall 병행</small></div>
+              <div><span>0</span><strong>제약 위반</strong><p>예산·필지·용량</p><small>허용치 0건</small></div>
             </div>
 
-            <h3 class="subheading">결론을 바꿀 수 있는 네 가지 불확실성</h3>
+            <h3 class="subheading">공공데이터 근거와 적용 책임</h3>
+            <div class="table-frame" role="region" aria-label="공공데이터 출처" tabindex="0">
+              <table>
+                <thead><tr><th>영역</th><th>주요 출처</th><th>P0 적용</th><th>품질 통제</th></tr></thead>
+                <tbody>
+                  <tr><th>고령인구·수요</th><td><a href="https://www.data.go.kr/data/15021230/openapi.do" target="_blank" rel="noreferrer">SGIS 통계지리정보서비스 ↗</a><br /><a href="https://kossda.snu.ac.kr/handle/20.500.12236/30286" target="_blank" rel="noreferrer">2022 서울시 노인실태조사 ↗</a></td><td>100m 인구 prior, 이동행태·불편 근거</td><td>소지역 노이즈와 예상수요 오차 민감도</td></tr>
+                  <tr><th>시설·법정 기준</th><td><a href="https://data.seoul.go.kr/dataList/OA-15052/F/1/datasetView.do" target="_blank" rel="noreferrer">서울시 경로당 현황 ↗</a><br /><a href="https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq=282119" target="_blank" rel="noreferrer">노인복지법 시행규칙 ↗</a></td><td>시설 위치·유형, 최소 시설기준</td><td>현재 동시용량은 행정자료·현장값 우선</td></tr>
+                  <tr><th>버스·지하철</th><td><a href="https://www.data.go.kr/data/15000193/openapi.do" target="_blank" rel="noreferrer">서울 버스 노선 API ↗</a><br /><a href="https://www.data.go.kr/data/15143847/openapi.do" target="_blank" rel="noreferrer">서울교통공사 열차시각표 ↗</a><br /><a href="https://www.ktdb.go.kr/www/selectBbsNttView.do?bbsNo=2&amp;key=45&amp;nttNo=3785" target="_blank" rel="noreferrer">KTDB 전국 GTFS ↗</a></td><td>노선·방향·정차순서·배차·경계 밖 경로</td><td>운행일·시간대·결측 구간시간 플래그</td></tr>
+                  <tr><th>필지·규제</th><td><a href="https://www.data.go.kr/data/15123899/openapi.do" target="_blank" rel="noreferrer">연속지적도 ↗</a><br /><a href="https://www.data.go.kr/data/15123973/openapi.do" target="_blank" rel="noreferrer">토지이용계획정보 ↗</a><br /><a href="https://data.seoul.go.kr/dataList/OA-1180/F/1/datasetView.do" target="_blank" rel="noreferrer">서울 개별공시지가 ↗</a></td><td>필지면적·용도·설치마스크·토지가</td><td>조건부 규제는 REVIEW_REQUIRED로 분리</td></tr>
+                  <tr><th>공사비</th><td><a href="https://news.seoul.go.kr/citybuild/technical/construction_cost_estimation_guidelines" target="_blank" rel="noreferrer">서울 공공건축물 공사비 가이드 ↗</a><br /><a href="https://www.kict.re.kr/menu.es?mid=a11001010000" target="_blank" rel="noreferrer">KICT 건설공사비지수 ↗</a></td><td>시설 유형·면적구간별 공사비</td><td>기준연도 보정, 토지·soft cost 별도 합산</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3 class="subheading">반드시 함께 보고할 민감도</h3>
             <div class="risk-grid">
-              <article><span>01</span><h4>수요율</h4><p>Pᵢ를 Dᵢ로 쓰면 모든 노인이 같은 필요도를 가진다고 가정합니다.</p></article>
-              <article><span>02</span><h4>수용량</h4><p>급식·상담·방문복지처럼 대체 불가능한 서비스 용량을 분리해야 합니다.</p></article>
-              <article><span>03</span><h4>이동비용</h4><p>배차, 대기, 환승, 보행 장벽과 시간대별 변화를 반영해야 합니다.</p></article>
-              <article><span>04</span><h4>보상 가중치</h4><p>최소 세 가지 정책 시나리오와 최악 지역 미충족 비율을 함께 보고해야 합니다.</p></article>
+              <article><span>01</span><h4>예상 동시수요</h4><p>기준·저수요·고수요 시나리오에서 후보 순위와 미수용 개선을 비교합니다.</p></article>
+              <article><span>02</span><h4>이동 부담</h4><p>보행속도 0.70/0.85/1.12m/s, 좌석확률 0.2/0.5/0.8을 평가합니다.</p></article>
+              <article><span>03</span><h4>접근 상한</h4><p>실제시간 20/30/40분과 일반화비용 기준의 순위 안정성을 확인합니다.</p></article>
+              <article><span>04</span><h4>사업비·용량</h4><p>공사비·토지가·ρ의 하한·중앙·상한에서 설치 가능성과 효과를 재계산합니다.</p></article>
             </div>
           </div>
         </section>
@@ -258,31 +313,31 @@
         <section class="section" id="roadmap">
           <div class="section-number">08</div>
           <div class="section-body">
-            <h2>기준선을 먼저 고정하고 GNN–RL을 단계적으로 검증합니다</h2>
-            <p class="section-intro">ML이 반드시 핵심이어도 계산 가능한 기준선이 있어야 학습 효과와 실패 원인을 증명할 수 있습니다.</p>
+            <h2>P0는 exact-first, 학습은 그 다음입니다</h2>
+            <p class="section-intro">완료 기준은 멋진 후보 지도가 아니라, 모든 추천이 같은 데이터 계약과 hard constraint 아래 재현되고 전 후보 기준해와 비교 가능한 상태입니다.</p>
 
             <ol class="roadmap">
-              <li><span>Phase 1</span><div><strong>E2SFCA + 최소비용 흐름</strong><p>설명 가능한 접근성·미충족 기준선을 만들고 격자별 uᵢ 계산을 재현합니다.</p><small>완료 조건 · 수요와 수용량 단위 검증</small></div></li>
-              <li><span>Phase 2</span><div><strong>GNN + 강화학습</strong><p>동일한 그래프와 평가기에서 위치·규모 선택 정책을 학습합니다.</p><small>완료 조건 · 휴리스틱 대비 효과·시간·제약 준수 개선</small></div></li>
-              <li><span>Phase 3</span><div><strong>Graph Diffusion + local search</strong><p>조건별 복수 Pareto 대안을 만들고 제약을 후처리합니다.</p><small>완료 조건 · 다양성·optimality gap·제약 위반률 검증</small></div></li>
+              <li><span>P0 · 01</span><div><strong>데이터 계약과 품질감사</strong><p>예상 동시수요, 유형별 동시용량, 운영시간, 이용자격, 필지 상태를 한 단위체계로 고정합니다.</p><small>완료 조건 · 회원수/일 이용자 혼입 0건 · 결측·기준일 추적</small></div></li>
+              <li><span>P0 · 02</span><div><strong>경로·예산·배분 exact 엔진</strong><p>수도권 상태 그래프, 필지별 내생 규모, lexicographic capacitated flow로 모든 유효 후보를 평가합니다.</p><small>완료 조건 · 경계 밖 경로 보존 · 예산/용량 위반 0건 · 전 후보 순위 재현</small></div></li>
+              <li><span>P0 · 03</span><div><strong>GNN Top-k ranking</strong><p>exact 점수를 의사정답으로 학습하고 상위 k개만 솔버로 재평가해 속도와 정확도를 함께 측정합니다.</p><small>완료 조건 · Top-k recall·regret·추론시간 보고</small></div></li>
+              <li><span>P1+</span><div><strong>다중시설 순차 확장</strong><p>설치 뒤 수요·공급·예산을 갱신하고 beam search·rollout 기준선 이후 RL의 추가 효용을 검증합니다.</p><small>완료 조건 · greedy 대비 형평성·optimality gap 개선 · 단계별 설명 가능</small></div></li>
             </ol>
 
             <div class="next-questions">
-              <h3>다음 설계 결정</h3>
+              <h3>P0 실행 계약</h3>
               <ol>
-                <li>분석 대상 복지서비스와 서비스별 수용량을 분리할 수 있는가?</li>
-                <li>수요의 분모는 전체 노인 인구인가, 예상 이용자 수인가, 우선 지원 대상인가?</li>
-                <li>최대 이동시간과 환승 횟수는 시간대·연령·서비스별로 어떻게 다른가?</li>
-                <li>후보지, 예산, 규모 클래스, 설치 불가능 지역은 어떤 행정 제약을 따르는가?</li>
-                <li>형평성은 최대 미충족 비율, 지역 간 분산, 취약도 가중 수요 중 무엇으로 정의할 것인가?</li>
+                <li>입력: 대상구, 지정 예산, 예상 동시수요, 시설별 동시수용량, 운영시간, 필지·규제·교통 데이터</li>
+                <li>출력: 전 후보 정책효과, 추천 Top-k, 예상 연면적·동시수용량·사업비, 설치 전후 형평성 지표</li>
+                <li>설명: 주요 수혜 격자, 대표 접근경로, 차선 후보와 탈락 이유, 민감도별 순위 변화</li>
+                <li>승인 전 확인: REVIEW_REQUIRED 필지, 법정 시설기준, 현장 동시수용량과 순사용면적</li>
               </ol>
-              <p>이 질문에 답하기 전의 결과는 정책 결정이 아니라 <strong>방법론 프로토타입</strong>으로 해석해야 합니다.</p>
+              <p><strong>다음 작업은 P0 후보 전수평가 파이프라인 구현입니다.</strong> AI가 부지를 임의로 확정하는 것이 아니라, 법규·예산을 통과한 모든 후보의 정책 효과를 계산하고 검증 가능한 우선순위를 제공합니다. <a href="https://github.com/Elder-Gardian/Planning" target="_blank" rel="noreferrer"><strong>구현 진행 보기 ↗</strong></a></p>
             </div>
           </div>
         </section>
 
         <footer class="report-footer">
-          <div><strong>Elder Guardian · Planning</strong><span>복지 사각지대 모델링 방법론 설계안</span></div>
+          <div><strong>Elder Guardian · P0 Planning</strong><span>예상 동시수요와 형평성 배분 기반 경로당 1개 입지 설계</span></div>
           <a href="https://github.com/Elder-Gardian/Planning" target="_blank" rel="noreferrer">GitHub 저장소 ↗</a>
         </footer>
       </main>
