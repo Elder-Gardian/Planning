@@ -45,10 +45,17 @@ def normalize_address(raw_address: Any, expected_borough: Any) -> str:
         return ""
 
     address = address.replace("보문로 29다길", "보문로29다길")
-    address = re.sub(r"^서울(?:특별시)?\s*", "", address)
-    if borough and not address.startswith(borough):
-        address = f"{borough} {address}"
-    address = f"서울특별시 {address}"
+    address = re.sub(r"^서울시특별시\s*", "서울특별시 ", address)
+    address = re.sub(r"^서울시\s*", "서울특별시 ", address)
+    address = re.sub(r"^서울\s+", "서울특별시 ", address)
+    outside_seoul = bool(
+        re.match(r"^(?!서울특별시)[가-힣]+(?:도|광역시|특별자치도)\s", address)
+    )
+    if not outside_seoul:
+        address = re.sub(r"^서울특별시\s*", "", address)
+        if borough and not address.startswith(borough):
+            address = f"{borough} {address}"
+        address = f"서울특별시 {address}"
     address = re.sub(r"\s*,\s*", ", ", address)
     address = re.sub(
         r"(\S+(?:로\d*[가-힣]*길|길|로))(\d+(?:-\d+)?)(?=[,\s(]|$)",
@@ -337,7 +344,8 @@ class OfficialJusoClient:
         errors: list[str] = []
         for query in variants:
             try:
-                match = self.search(query, expected_borough)
+                validation_borough = expected_borough if query.startswith("서울특별시") else ""
+                match = self.search(query, validation_borough)
                 if match is None:
                     errors.append(f"후보 없음 또는 자치구 불일치: {query}")
                     continue

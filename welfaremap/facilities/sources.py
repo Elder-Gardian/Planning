@@ -53,7 +53,10 @@ def _seoul_address(address: Any) -> str:
     text = clean_text(address)
     if not text or text == "-":
         return ""
-    if text.startswith("서울특별시"):
+    text = re.sub(r"^서울시특별시\s*", "서울특별시 ", text)
+    text = re.sub(r"^서울시\s*", "서울특별시 ", text)
+    text = re.sub(r"^서울\s+", "서울특별시 ", text)
+    if text.startswith("서울특별시") or re.match(r"^[가-힣]+(?:도|광역시|특별자치도)\s", text):
         return text
     return f"서울특별시 {text}"
 

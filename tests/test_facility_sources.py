@@ -111,6 +111,18 @@ def test_social_facility_code_is_not_lost(tmp_path: Path) -> None:
     assert result.iloc[0]["source_facility_code"] == "A001"
 
 
+def test_external_facility_address_is_not_rewritten_as_seoul(tmp_path: Path) -> None:
+    path = tmp_path / "social.csv"
+    _write_social_csv(path)
+    frame = pd.read_csv(path, encoding="cp949")
+    frame.loc[0, "시설주소"] = "충청남도 태안군 안면읍 중신로 343"
+    frame.to_csv(path, encoding="cp949", index=False)
+
+    result = parse_social_facilities(path)
+
+    assert result.iloc[0]["address_search"] == "충청남도 태안군 안면읍 중신로 343"
+
+
 def test_cross_source_same_place_is_not_automatically_merged(tmp_path: Path) -> None:
     center_path = tmp_path / "centers.xlsx"
     class_path = tmp_path / "classes.xlsx"

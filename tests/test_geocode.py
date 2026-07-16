@@ -22,6 +22,12 @@ def test_placeholder_address_is_rejected() -> None:
     assert normalize_address("서울특별시 -", "") == ""
 
 
+def test_external_address_is_not_prefixed_with_owner_borough() -> None:
+    address = normalize_address("충청남도 태안군 안면읍 중신로343", "동작구")
+
+    assert address == "충청남도 태안군 안면읍 중신로 343"
+
+
 def test_wrong_borough_candidate_is_never_accepted() -> None:
     candidate = {
         "roadAddrPart1": "서울특별시 동대문구 보문로 1",
