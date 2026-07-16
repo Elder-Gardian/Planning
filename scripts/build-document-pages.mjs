@@ -21,7 +21,12 @@ const renderMath = (value, displayMode) => katex.renderToString(value, {
 });
 const renderInline = (value) => {
   const expressions = [];
-  const protectedValue = String(value).replace(/\$([^$\n]+)\$|\\\((.+?)\\\)/g, (_, dollarExpression, parenthesizedExpression) => {
+  const links = [];
+  const protectedLinks = String(value).replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, label, href) => {
+    links.push({ label, href });
+    return `@@LINK_${links.length - 1}@@`;
+  });
+  const protectedValue = protectedLinks.replace(/\$([^$\n]+)\$|\\\((.+?)\\\)/g, (_, dollarExpression, parenthesizedExpression) => {
     const expression = dollarExpression ?? parenthesizedExpression;
     expressions.push(expression);
     return `@@MATH_${expressions.length - 1}@@`;
@@ -30,7 +35,11 @@ const renderInline = (value) => {
   return escapeHtml(protectedValue)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/@@MATH_(\d+)@@/g, (_, expressionIndex) => `<span class="math-inline">${renderMath(expressions[Number(expressionIndex)], false)}</span>`);
+    .replace(/@@MATH_(\d+)@@/g, (_, expressionIndex) => `<span class="math-inline">${renderMath(expressions[Number(expressionIndex)], false)}</span>`)
+    .replace(/@@LINK_(\d+)@@/g, (_, linkIndex) => {
+      const link = links[Number(linkIndex)];
+      return `<a href="${escapeHtml(link.href)}" target="_blank" rel="noreferrer">${renderInline(link.label)}</a>`;
+    });
 };
 const isTableDivider = (line) => /^\s*\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/.test(line);
 const tableCells = (line) => line.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim());
