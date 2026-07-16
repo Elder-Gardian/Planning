@@ -1,0 +1,24 @@
+.DS_Store
+**/.DS_Store
+
+# Local handoff workspace; canonical assets are selectively migrated.
+/Handoff/
+
+# Python runtime and test artifacts.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Credentials and local API state.
+.env
+.env.*
+!.env.example
+*.sqlite3
+*.log
+
+# Office temporary files.
+~$*
