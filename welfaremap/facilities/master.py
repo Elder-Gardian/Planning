@@ -183,6 +183,7 @@ def facility_profile(
     timestamp = generated_at or datetime.now(UTC)
     center_mask = master["p0_service_eligible"].astype(bool)
     coord_complete = pd.to_numeric(master["latitude"], errors="coerce").notna()
+    complete_coordinates = master[coord_complete]
     return {
         "generated_at": timestamp.isoformat(),
         "readiness": "PROVISIONAL_NOT_READY_FOR_FINAL_OPTIMIZATION",
@@ -193,7 +194,11 @@ def facility_profile(
         "coordinates": {
             "complete": int(coord_complete.sum()),
             "missing": int((~coord_complete).sum()),
-            "by_source": master["coord_source"].value_counts().to_dict(),
+            "p0_complete": int((center_mask & coord_complete).sum()),
+            "p0_missing": int((center_mask & ~coord_complete).sum()),
+            "by_source_complete_only": complete_coordinates["coord_source"]
+            .value_counts()
+            .to_dict(),
             "by_status": master["coord_status"].value_counts().to_dict(),
         },
         "capacity": {

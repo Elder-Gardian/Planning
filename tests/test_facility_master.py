@@ -120,5 +120,7 @@ def test_profile_reports_provisional_readiness_and_capacity_gap() -> None:
 
     assert profile["readiness"] == "PROVISIONAL_NOT_READY_FOR_FINAL_OPTIMIZATION"
     assert profile["coordinates"]["complete"] == 1
+    assert profile["coordinates"]["p0_complete"] == 1
+    assert profile["coordinates"]["p0_missing"] == 0
     assert profile["capacity"]["operational_known"] == 0
     assert profile["capacity"]["legal_nominal_total"] == 20
